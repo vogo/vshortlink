@@ -79,16 +79,16 @@ func (p *MemoryShortCodePool) Add(ctx context.Context, length int, shortCode str
 }
 
 // Size implements cores.ShortCodePool.Size
-func (p *MemoryShortCodePool) Size(ctx context.Context, length int) int64 {
+func (p *MemoryShortCodePool) Size(ctx context.Context, length int) (int64, error) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 
 	codes, exists := p.pools[length]
 	if !exists {
-		return 0
+		return 0, nil
 	}
 
-	return int64(len(codes))
+	return int64(len(codes)), nil
 }
 
 // Lock implements cores.ShortCodePool.Lock

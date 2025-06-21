@@ -15,30 +15,35 @@
  * limitations under the License.
  */
 
-package mem
+package redisx
 
 import (
+	"github.com/redis/go-redis/v9"
 	"github.com/vogo/vshortlink/cores"
 )
 
-// MemoryShortLinkService is a memory-based implementation of ShortLinkService
-type MemoryShortLinkService struct {
+// RedisShortLinkService implements the ShortLinkService interface using Redis
+type RedisShortLinkService struct {
 	*cores.ShortLinkService
+	redis *redis.Client
 }
 
-// NewMemoryShortLinkService creates a new MemoryShortLinkService with in-memory implementations
-// of repository, cache, and pool
-func NewMemoryShortLinkService(batchGenerateSize int64, maxCodeLength int) *MemoryShortLinkService {
-	// Create memory-based implementations
-	repo := NewMemoryShortLinkRepository()
-	cache := NewMemoryShortLinkCache()
-	pool := NewMemoryShortCodePool()
+// NewRedisShortLinkService creates a new RedisShortLinkService
+func NewRedisShortLinkService(redisClient *redis.Client, batchGenerateSize int64, maxCodeLength int) *RedisShortLinkService {
+	// Create Redis repository
+	repo := NewRedisShortLinkRepository(redisClient)
 
-	// Create the core service
+	// Create Redis cache
+	cache := NewRedisShortLinkCache(redisClient)
+
+	// Create Redis pool
+	pool := NewRedisShortCodePool(redisClient)
+
+	// Create core service
 	coreService := cores.NewShortLinkService(repo, cache, pool, batchGenerateSize, maxCodeLength)
 
-	// Return the memory service
-	return &MemoryShortLinkService{
+	return &RedisShortLinkService{
 		ShortLinkService: coreService,
+		redis:            redisClient,
 	}
 }

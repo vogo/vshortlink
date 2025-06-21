@@ -29,9 +29,10 @@ import (
 type ShortLinkService struct {
 	runner *vrun.Runner
 
-	repo              ShortLinkRepository
-	cache             ShortLinkCache
-	pool              ShortCodePool
+	Repo  ShortLinkRepository
+	Cache ShortLinkCache
+	Pool  ShortCodePool
+
 	batchGenerateSize int64
 	maxCodeLength     int
 
@@ -42,9 +43,9 @@ func NewShortLinkService(repo ShortLinkRepository, cache ShortLinkCache, pool Sh
 	svc := &ShortLinkService{
 		runner: vrun.New(),
 
-		repo:              repo,
-		cache:             cache,
-		pool:              pool,
+		Repo:              repo,
+		Cache:             cache,
+		Pool:              pool,
 		batchGenerateSize: batchGenerateSize,
 		maxCodeLength:     maxCodeLength,
 		generators:        map[int]*ShortCodeGenerator{},
@@ -54,7 +55,11 @@ func NewShortLinkService(repo ShortLinkRepository, cache ShortLinkCache, pool Sh
 
 	for i := 1; i <= maxCodeLength; i++ {
 		svc.generators[i] = NewShortCodeGenerator(i, int(batchGenerateSize))
-		if pool.Size(ctx, i) < 100 {
+		size, err := pool.Size(ctx, i)
+		if err != nil {
+			vlog.Panicf("get short code pool size failed, err: %v", err)
+		}
+		if size < 100 {
 			svc.batchGenerate(ctx, i)
 		}
 	}
@@ -76,7 +81,7 @@ func (s *ShortLinkService) Create(ctx context.Context, link string, shortCodeLen
 	}
 
 	// 2. generate short code
-	shortCode, enough, err := s.pool.Pull(ctx, shortCodeLength)
+	shortCode, enough, err := s.Pool.Pull(ctx, shortCodeLength)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +90,7 @@ func (s *ShortLinkService) Create(ctx context.Context, link string, shortCodeLen
 		go s.batchGenerate(ctx, shortCodeLength)
 	}
 
-	if err = s.cache.Add(ctx, shortCodeLength, shortCode, link, expireTime); err != nil {
+	if err = s.Cache.Add(ctx, shortCodeLength, shortCode, link, expireTime); err != nil {
 		return nil, err
 	}
 
@@ -98,7 +103,7 @@ func (s *ShortLinkService) Create(ctx context.Context, link string, shortCodeLen
 		Expire: expireTime,
 	}
 
-	err = s.repo.Create(ctx, shortLink)
+	err = s.Repo.Create(ctx, shortLink)
 	if err != nil {
 		return nil, err
 	}
@@ -107,14 +112,14 @@ func (s *ShortLinkService) Create(ctx context.Context, link string, shortCodeLen
 }
 
 func (s *ShortLinkService) batchGenerate(ctx context.Context, shortCodeLength int) {
-	err := s.pool.Lock(ctx, shortCodeLength, time.Minute)
+	err := s.Pool.Lock(ctx, shortCodeLength, time.Minute)
 	if err != nil {
 		vlog.Errorf("lock short code pool failed, err: %v", err)
 		return
 	}
-	defer s.pool.Unlock(ctx, shortCodeLength)
+	defer s.Pool.Unlock(ctx, shortCodeLength)
 
-	startIndex, err := s.repo.GetStartIndex(ctx, shortCodeLength)
+	startIndex, err := s.Repo.GetStartIndex(ctx, shortCodeLength)
 	if err != nil {
 		vlog.Errorf("get start index failed, err: %v", err)
 		return
@@ -129,7 +134,7 @@ func (s *ShortLinkService) batchGenerate(ctx context.Context, shortCodeLength in
 
 	// add batch short code to pool
 	for _, number := range batchNumbers {
-		err = s.pool.Add(ctx, shortCodeLength, ToBase62(number, shortCodeLength))
+		err = s.Pool.Add(ctx, shortCodeLength, ToBase62(number, shortCodeLength))
 		if err != nil {
 			vlog.Errorf("add batch short code to pool failed, err: %v", err)
 			return
@@ -142,7 +147,7 @@ func (s *ShortLinkService) ExpireActives() {
 	limit := 100
 	ctx := context.Background()
 	for {
-		links, err := s.repo.FindExpiredActives(ctx, fromId, limit)
+		links, err := s.Repo.FindExpiredActives(ctx, fromId, limit)
 		if err != nil {
 			vlog.Errorf("find recycle expireds failed, err: %v", err)
 			return
@@ -153,14 +158,14 @@ func (s *ShortLinkService) ExpireActives() {
 		}
 
 		for _, link := range links {
-			if err = s.cache.Remove(ctx, link.Length, link.Code); err != nil {
+			if err = s.Cache.Remove(ctx, link.Length, link.Code); err != nil {
 				vlog.Errorf("remove expired active link from cache failed, err: %v", err)
 				return
 			}
 			link.Status = LinkStatusExpire
 		}
 
-		if err = s.repo.Updates(ctx, links); err != nil {
+		if err = s.Repo.Updates(ctx, links); err != nil {
 			vlog.Errorf("update expired active links failed, err: %v", err)
 			return
 		}
@@ -176,7 +181,7 @@ func (s *ShortLinkService) RecycleExpires() {
 
 	ctx := context.Background()
 	for {
-		links, err := s.repo.FindExpires(ctx, fromId, expiredBefore, limit)
+		links, err := s.Repo.FindExpires(ctx, fromId, expiredBefore, limit)
 		if err != nil {
 			vlog.Errorf("find recycle expireds failed, err: %v", err)
 			return
@@ -187,14 +192,14 @@ func (s *ShortLinkService) RecycleExpires() {
 		}
 
 		for _, link := range links {
-			if err = s.pool.Add(ctx, link.Length, link.Code); err != nil {
+			if err = s.Pool.Add(ctx, link.Length, link.Code); err != nil {
 				vlog.Errorf("add recycle expired link to pool failed, err: %v", err)
 				return
 			}
 			link.Status = LinkStatusRecycle
 		}
 
-		if err = s.repo.Updates(ctx, links); err != nil {
+		if err = s.Repo.Updates(ctx, links); err != nil {
 			vlog.Errorf("update recycle expired links failed, err: %v", err)
 			return
 		}

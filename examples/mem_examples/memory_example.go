@@ -88,7 +88,7 @@ func main() {
 	service.RecycleExpires()
 
 	// Check if the code was added back to the pool
-	poolSize := service.Pool.Size(ctx, link.Length)
+	poolSize, _ := service.Pool.Size(ctx, link.Length)
 	fmt.Printf("Pool size for length %d: %d\n", link.Length, poolSize)
 
 	// Create a new link with the same length to see if we get the recycled code

@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package cores
+package redisx
 
-import (
-	"context"
-	"time"
+import "errors"
+
+// Error definitions
+var (
+	// ErrLinkNotFound is returned when a short link is not found
+	ErrLinkNotFound = errors.New("short link not found")
+	// ErrPoolLocked is returned when a short code pool is locked
+	ErrPoolLocked = errors.New("short code pool is locked")
+	// ErrRedisOperationFailed is returned when a Redis operation fails
+	ErrRedisOperationFailed = errors.New("redis operation failed")
 )
-
-type ShortCodePool interface {
-	Pull(ctx context.Context, length int) (string, bool, error)
-	Add(ctx context.Context, length int, shortCode string) error
-	Size(ctx context.Context, length int) (int64, error)
-
-	Lock(ctx context.Context, length int, expire time.Duration) error
-	Unlock(ctx context.Context, length int)
-}
