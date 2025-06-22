@@ -16,6 +16,8 @@ github.com/redis/go-redis/v9 v9.10.0 h1:FxwK3eV8p/CQa0Ch276C7u2d0eNC9kCmAYQ7mCXC
 github.com/redis/go-redis/v9 v9.10.0/go.mod h1:huWgSWd8mW6+m0VPhJjSSQ+d6Nh1VICQ6Q5lHuCH/Iw=
 github.com/vogo/vogo v0.0.0-20250616054728-98448017d355 h1:c2iUM4+Ac1iKuecre3WncLdycbqQ9AmZ7Q5X1esqdFk=
 github.com/vogo/vogo v0.0.0-20250616054728-98448017d355/go.mod h1:gaCplto8XOVoHbN9nAGpEnqDT1s6hnNbfDpH0acra9c=
+github.com/vogo/vogo v0.0.0-20250622014525-29fe91713e84 h1:UWhTgZHOXLgxzpjjOX74/paZWh7iiL5Ub6ZiOXGxZgQ=
+github.com/vogo/vogo v0.0.0-20250622014525-29fe91713e84/go.mod h1:gaCplto8XOVoHbN9nAGpEnqDT1s6hnNbfDpH0acra9c=
 golang.org/x/text v0.20.0 h1:gK/Kv2otX8gz+wn7Rmb3vT96ZwuoxnQlY+HlJVj7Qug=
 golang.org/x/text v0.20.0/go.mod h1:D4IsuqiFMhST5bX19pQ9ikHC2GsaKyk/oF+pn3ducp4=
 gorm.io/driver/mysql v1.6.0 h1:eNbLmNTpPpTOVZi8MMxCi2aaIm0ZpInbORNXDwyLGvg=

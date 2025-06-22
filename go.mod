@@ -17,5 +17,5 @@ require (
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/vogo/vogo v0.0.0-20250616054728-98448017d355
+	github.com/vogo/vogo v0.0.0-20250622014525-29fe91713e84
 )

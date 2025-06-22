@@ -22,13 +22,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vogo/vshortlink/mem"
+	"github.com/vogo/vshortlink/cores"
+	"github.com/vogo/vshortlink/memx"
 )
 
 func main() {
 	// Create a new memory-based short link service
 	// batchGenerateSize: 100, maxCodeLength: 6
-	service := mem.NewMemoryShortLinkService(100, 6)
+	service := memx.NewMemoryShortLinkService(
+		cores.WithBatchGenerateSize(100),
+		cores.WithMaxCodeLength(6))
 	defer service.Stop()
 
 	// Create a new short link

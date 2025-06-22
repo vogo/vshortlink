@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package mem
+package memx
 
 import (
 	"github.com/vogo/vshortlink/cores"
@@ -28,14 +28,14 @@ type MemoryShortLinkService struct {
 
 // NewMemoryShortLinkService creates a new MemoryShortLinkService with in-memory implementations
 // of repository, cache, and pool
-func NewMemoryShortLinkService(batchGenerateSize int64, maxCodeLength int) *MemoryShortLinkService {
+func NewMemoryShortLinkService(opts ...cores.ServiceOption) *MemoryShortLinkService {
 	// Create memory-based implementations
 	repo := NewMemoryShortLinkRepository()
 	cache := NewMemoryShortLinkCache()
 	pool := NewMemoryShortCodePool()
 
 	// Create the core service
-	coreService := cores.NewShortLinkService(repo, cache, pool, batchGenerateSize, maxCodeLength)
+	coreService := cores.NewShortLinkService(repo, cache, pool, opts...)
 
 	// Return the memory service
 	return &MemoryShortLinkService{

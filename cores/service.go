@@ -35,26 +35,57 @@ type ShortLinkService struct {
 
 	batchGenerateSize int64
 	maxCodeLength     int
+	authToken         string
 
 	generators map[int]*ShortCodeGenerator
 }
 
-func NewShortLinkService(repo ShortLinkRepository, cache ShortLinkCache, pool ShortCodePool, batchGenerateSize int64, maxCodeLength int) *ShortLinkService {
+// ServiceOption 定义一个函数类型，用于设置ShortLinkService的选项
+type ServiceOption func(*ShortLinkService)
+
+// WithBatchGenerateSize 设置批量生成短码的大小
+func WithBatchGenerateSize(size int64) ServiceOption {
+	return func(s *ShortLinkService) {
+		s.batchGenerateSize = size
+	}
+}
+
+// WithMaxCodeLength 设置最大短码长度
+func WithMaxCodeLength(length int) ServiceOption {
+	return func(s *ShortLinkService) {
+		s.maxCodeLength = length
+	}
+}
+
+// WithAuthToken 设置认证令牌
+func WithAuthToken(token string) ServiceOption {
+	return func(s *ShortLinkService) {
+		s.authToken = token
+	}
+}
+
+func NewShortLinkService(repo ShortLinkRepository, cache ShortLinkCache, pool ShortCodePool, opts ...ServiceOption) *ShortLinkService {
+	// 设置默认值
 	svc := &ShortLinkService{
 		runner: vrun.New(),
 
 		Repo:              repo,
 		Cache:             cache,
 		Pool:              pool,
-		batchGenerateSize: batchGenerateSize,
-		maxCodeLength:     maxCodeLength,
+		batchGenerateSize: 100, // 默认值
+		maxCodeLength:     6,   // 默认值
 		generators:        map[int]*ShortCodeGenerator{},
+	}
+
+	// 应用所有选项
+	for _, opt := range opts {
+		opt(svc)
 	}
 
 	ctx := context.Background()
 
-	for i := 1; i <= maxCodeLength; i++ {
-		svc.generators[i] = NewShortCodeGenerator(i, int(batchGenerateSize))
+	for i := 1; i <= svc.maxCodeLength; i++ {
+		svc.generators[i] = NewShortCodeGenerator(i, int(svc.batchGenerateSize))
 		size, err := pool.Size(ctx, i)
 		if err != nil {
 			vlog.Panicf("get short code pool size failed, err: %v", err)

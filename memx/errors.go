@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package mem
+package memx
 
 import "errors"
 

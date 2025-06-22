@@ -1,72 +1,129 @@
-# VShortLink - 高性能短链接服务
+# VShortLink - High-Performance URL Shortening Service
 
-## 项目概述
+## Overview
 
-VShortLink是一个高性能的短链接服务，支持不同长度短链码的生成、管理和访问。系统采用预生成短链码池的方式，提高短链创建的响应速度，并实现了短链码的回收与重用机制。
+VShortLink is a high-performance URL shortening service that supports the generation, management, and access of short link codes of various lengths. The system uses a pre-generated short code pool approach to improve the response speed of short link creation and implements a mechanism for recycling and reusing short codes.
 
-## 核心特性
+## Core Features
 
-- **多长度短链码支持**：支持4位、5位、6位等不同长度的短链码，满足不同场景需求
-- **预生成短链码池**：通过批量预生成短链码并存储在Redis中，提高创建短链的响应速度
-- **短链码回收机制**：支持短链码的回收与重用，高效利用有限的短链资源
-- **高性能设计**：采用多级缓存策略，确保短链访问的高性能和低延迟
-- **分布式支持**：基于Redis的分布式设计，支持水平扩展
+- **Multiple Short Code Lengths**: Supports 4, 5, 6, and other lengths of short codes to meet different scenario requirements
+- **Pre-generated Short Code Pool**: Improves the response speed of creating short links by batch pre-generating short codes and storing them in Redis
+- **Short Code Recycling Mechanism**: Supports the recycling and reuse of short codes, efficiently utilizing limited short link resources
+- **High-Performance Design**: Uses multi-level caching strategies to ensure high performance and low latency for short link access
+- **Distributed Support**: Redis-based distributed design, supporting horizontal scaling
 
-## 技术架构
+## Technical Architecture
 
-- **存储层**：
-  - MySQL/PostgreSQL：存储短链基本信息和状态
-  - Redis：存储短链码池和短链映射关系
-  - 内存缓存：提供最快的查询响应
+- **Storage Layer**:
+  - MySQL/PostgreSQL: Stores basic information and status of short links
+  - Redis: Stores short code pool and short link mapping relationships
+  - Memory Cache: Provides the fastest query response
 
-- **核心算法**：
-  - 基于62进制的短链码生成算法
-  - 批量生成与索引管理机制
-  - 短链码回收与冷却期设计
+- **Core Algorithms**:
+  - Base62 short code generation algorithm
+  - Batch generation and index management mechanism
+  - Short code recycling and cooling period design
 
-## 快速开始
+## Quick Start
 
-### 安装依赖
+### Install Dependencies
 
 ```bash
 go mod tidy
 ```
 
-### 运行示例
+### Run the Server
+
+The server can be configured using environment variables:
 
 ```bash
-go run examples/generator_example.go
+# MySQL Configuration
+export MYSQL_HOST=localhost
+export MYSQL_PORT=3306
+export MYSQL_USER=root
+export MYSQL_PASSWORD=password
+export MYSQL_DATABASE=vshortlink
+
+# Redis Configuration
+export REDIS_HOST=localhost
+export REDIS_PORT=6379
+export REDIS_PASSWORD=
+export REDIS_DB=0
+
+# Service Configuration
+export SERVER_PORT=8080
+export BATCH_GENERATE_SIZE=100
+export MAX_CODE_LENGTH=6
+
+# Start the server
+go run cmd/server/main.go
 ```
 
-## 核心包说明
+## Core Packages
 
-### cores包
+### cores Package
 
-`cores`包定义了短链接系统的核心常量和工具函数：
+The `cores` package defines the core interfaces and implementations for the short link system:
 
-- `shortlink.go`：定义短链码的基本参数和转换函数
-- `generator.go`：实现短链码的生成、获取和回收功能
+- `link.go`: Defines the basic parameters and status of short links
+- `service.go`: Implements the core service for short link creation, retrieval, and management
+- `repo.go`: Defines the repository interface for short link storage
+- `cache.go`: Defines the cache interface for short link caching
+- `pool.go`: Defines the pool interface for short code management
 
-### 使用示例
+### Implementation Packages
 
-```go
-// 创建短链码生成器
-generator := cores.NewShortLinkGenerator(redisClient)
+- `gormx`: MySQL-based implementation using GORM
+- `redisx`: Redis-based implementation
+- `memx`: Memory-based implementation for testing and development
 
-// 生成一批4位短链码
-err = generator.GenerateShortCodes(ctx, cores.ShortLink4)
+## Hybrid Implementation
 
-// 获取一个4位短链码
-shortCode, err := generator.GetShortCode(ctx, cores.ShortLink4)
+The server in `cmd/server/main.go` uses a hybrid approach:
 
-// 回收短链码
-err = generator.RecycleShortCode(ctx, cores.ShortLink4, shortCode, 60) // 60秒冷却期
+- Repository: GORM-based MySQL implementation for persistent storage
+- Cache: Redis-based implementation for high-performance caching
+- Pool: Redis-based implementation for distributed short code pool management
+
+This hybrid approach combines the reliability of MySQL with the performance of Redis.
+
+## API Usage
+
+### Create a Short Link
+
+```bash
+curl -X POST http://localhost:8080/create_link \
+  -H "Content-Type: application/json" \
+  -d '{"link":"https://example.com","length":4,"expire":"2023-12-31T23:59:59Z"}'
 ```
 
-## 设计文档
+Response:
 
-详细的设计文档请参考 [设计文档](doc/design.md)。
+```json
+{
+  "id": 1,
+  "length": 4,
+  "code": "abcd",
+  "link": "https://example.com",
+  "expire": "2023-12-31T23:59:59Z",
+  "status": 1
+}
+```
 
-## 许可证
+### Access a Short Link
 
-本项目采用 Apache License 2.0 许可证。详情请参阅 [LICENSE](LICENSE) 文件。
+Simply visit the short link in your browser:
+
+```
+http://localhost:8080/{code}
+```
+
+The server will redirect you to the original URL.
+
+## Design Document
+
+For detailed design documentation, please refer to the [Design Document](doc/design.md).
+
+## License
+
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.

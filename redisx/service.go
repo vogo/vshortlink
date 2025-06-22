@@ -29,7 +29,7 @@ type RedisShortLinkService struct {
 }
 
 // NewRedisShortLinkService creates a new RedisShortLinkService
-func NewRedisShortLinkService(redisClient *redis.Client, batchGenerateSize int64, maxCodeLength int) *RedisShortLinkService {
+func NewRedisShortLinkService(redisClient *redis.Client, opts ...cores.ServiceOption) *RedisShortLinkService {
 	// Create Redis repository
 	repo := NewRedisShortLinkRepository(redisClient)
 
@@ -40,7 +40,7 @@ func NewRedisShortLinkService(redisClient *redis.Client, batchGenerateSize int64
 	pool := NewRedisShortCodePool(redisClient)
 
 	// Create core service
-	coreService := cores.NewShortLinkService(repo, cache, pool, batchGenerateSize, maxCodeLength)
+	coreService := cores.NewShortLinkService(repo, cache, pool, opts...)
 
 	return &RedisShortLinkService{
 		ShortLinkService: coreService,

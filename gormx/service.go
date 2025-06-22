@@ -29,7 +29,7 @@ type GormShortLinkService struct {
 }
 
 // NewGormShortLinkService creates a new GormShortLinkService
-func NewGormShortLinkService(db *gorm.DB, batchGenerateSize int64, maxCodeLength int) *GormShortLinkService {
+func NewGormShortLinkService(db *gorm.DB, opts ...cores.ServiceOption) *GormShortLinkService {
 	// Create GORM repository
 	repo := NewGormShortLinkRepository(db)
 
@@ -40,7 +40,7 @@ func NewGormShortLinkService(db *gorm.DB, batchGenerateSize int64, maxCodeLength
 	pool := NewGormShortCodePool(db)
 
 	// Create core service
-	coreService := cores.NewShortLinkService(repo, cache, pool, batchGenerateSize, maxCodeLength)
+	coreService := cores.NewShortLinkService(repo, cache, pool, opts...)
 
 	return &GormShortLinkService{
 		ShortLinkService: coreService,

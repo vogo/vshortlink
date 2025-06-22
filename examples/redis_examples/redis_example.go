@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/vogo/vshortlink/cores"
 	"github.com/vogo/vshortlink/redisx"
 )
 
@@ -46,7 +47,9 @@ func RedisExample() {
 
 	// 创建基于Redis的短链接服务
 	// batchGenerateSize: 100, maxCodeLength: 6
-	service := redisx.NewRedisShortLinkService(redisClient, 100, 6)
+	service := redisx.NewRedisShortLinkService(redisClient,
+		cores.WithBatchGenerateSize(100),
+		cores.WithMaxCodeLength(6))
 
 	// 停止服务（在函数结束时）
 	defer service.Stop()
