@@ -24,6 +24,7 @@ import (
 
 	"github.com/vogo/vshortlink/cores"
 	"github.com/vogo/vshortlink/gormx"
+	"github.com/vogo/vshortlink/memx"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -40,15 +41,24 @@ func GormExample() {
 		panic(fmt.Sprintf("failed to connect to database: %v", err))
 	}
 
+	// Create GORM repository
+	repo := gormx.NewGormShortLinkRepository(db)
+
+	// Create cache (using in-memory implementation for better performance)
+	cache := memx.NewMemoryShortLinkCache()
+
+	// Create pool
+	pool := memx.NewMemoryShortCodePool()
+
 	// Create a new GORM-based ShortLinkService
 	// batchGenerateSize: 100, maxCodeLength: 6
-	service := gormx.NewGormShortLinkService(db, cores.WithBatchGenerateSize(100), cores.WithMaxCodeLength(6))
+	service := cores.NewShortLinkService(repo, cache, pool, cores.WithBatchGenerateSize(100), cores.WithMaxCodeLength(6))
 
 	// Create a context
 	ctx := context.Background()
 
 	// Create a short link that expires in 1 hour
-	link, err := service.ShortLinkService.Create(ctx, "https://example.com", 4, time.Now().Add(time.Hour))
+	link, err := service.Create(ctx, "https://example.com", 4, time.Now().Add(time.Hour))
 	if err != nil {
 		panic(fmt.Sprintf("failed to create short link: %v", err))
 	}
@@ -73,7 +83,7 @@ func GormExample() {
 	fmt.Println("Updated short link expiration time")
 
 	// Create a short link that expires immediately for testing expiration
-	expiredLink, err := service.ShortLinkService.Create(ctx, "https://expired-example.com", 4, time.Now().Add(-time.Second))
+	expiredLink, err := service.Create(ctx, "https://expired-example.com", 4, time.Now().Add(-time.Second))
 	if err != nil {
 		panic(fmt.Sprintf("failed to create expired short link: %v", err))
 	}
@@ -81,7 +91,7 @@ func GormExample() {
 	fmt.Printf("Created expired short link with code: %s\n", expiredLink.Code)
 
 	// Process expired active links
-	service.ShortLinkService.ExpireActives()
+	service.ExpireActives()
 	fmt.Println("Processed expired active links")
 
 	// Try to get the expired link
@@ -91,11 +101,11 @@ func GormExample() {
 	}
 
 	// Recycle expired links
-	service.ShortLinkService.RecycleExpires()
+	service.RecycleExpires()
 	fmt.Println("Recycled expired links")
 
 	// Create a new link and check if the recycled code is reused
-	newLink, err := service.ShortLinkService.Create(ctx, "https://new-example.com", 4, time.Now().Add(time.Hour))
+	newLink, err := service.Create(ctx, "https://new-example.com", 4, time.Now().Add(time.Hour))
 	if err != nil {
 		panic(fmt.Sprintf("failed to create new short link: %v", err))
 	}

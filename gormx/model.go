@@ -21,51 +21,49 @@ import (
 	"time"
 
 	"github.com/vogo/vshortlink/cores"
-	"gorm.io/gorm"
 )
+
+var (
+	shortLinkTableName  = "short_links"
+	startIndexTableName = "short_link_indices"
+)
+
+func SetShortLinkTableName(name string) {
+	shortLinkTableName = name
+}
+
+func SetStartIndexTableName(name string) {
+	startIndexTableName = name
+}
 
 // ShortLinkModel is the GORM model for short links
 type ShortLinkModel struct {
-	ID        int64            `gorm:"primaryKey;autoIncrement"`
-	Length    int              `gorm:"index"`
-	Code      string           `gorm:"uniqueIndex;size:32"`
-	Link      string           `gorm:"size:2048"`
-	Expire    time.Time        `gorm:"index"`
-	Status    cores.LinkStatus `gorm:"index"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
+	ID         int64            `json:"id" gorm:"primaryKey;autoIncrement" comment:"ID"`
+	Length     int              `json:"length" gorm:"index" comment:"short code length"`
+	Code       string           `json:"code" gorm:"uniqueIndex;size:32" comment:"short code"`
+	Link       string           `json:"link" gorm:"size:2048" comment:"original link"`
+	Expire     time.Time        `json:"expire" gorm:"index" comment:"expire time"`
+	Status     cores.LinkStatus `json:"status" gorm:"index" comment:"status"`
+	CreateTime time.Time        `json:"create_time" gorm:"column:create_time" comment:"create time"`
+	ModifyTime time.Time        `json:"modify_time" gorm:"column:modify_time" comment:"modify time"`
 }
 
 // TableName returns the table name for the ShortLinkModel
 func (ShortLinkModel) TableName() string {
-	return "short_links"
+	return shortLinkTableName
 }
 
 // StartIndexModel is the GORM model for storing start indices
 type StartIndexModel struct {
-	Length     int   `gorm:"primaryKey"`
-	StartIndex int64 `gorm:"column:start_index"`
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	Length     int       `json:"length" gorm:"primaryKey" comment:"short code length"`
+	StartIndex int64     `json:"start_index" gorm:"column:start_index" comment:"start index"`
+	CreateTime time.Time `json:"create_time" gorm:"column:create_time" comment:"create time"`
+	ModifyTime time.Time `json:"modify_time" gorm:"column:modify_time" comment:"modify time"`
 }
 
 // TableName returns the table name for the StartIndexModel
 func (StartIndexModel) TableName() string {
-	return "short_link_indices"
-}
-
-// PoolLockModel is the GORM model for pool locks
-type PoolLockModel struct {
-	Length    int       `gorm:"primaryKey"`
-	ExpireAt  time.Time `gorm:"index"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-// TableName returns the table name for the PoolLockModel
-func (PoolLockModel) TableName() string {
-	return "short_link_pool_locks"
+	return startIndexTableName
 }
 
 // ToCore converts a ShortLinkModel to a cores.ShortLink

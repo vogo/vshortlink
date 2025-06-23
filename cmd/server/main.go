@@ -34,30 +34,6 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// ShortLinkServer short link server，using gormx's repo and redisx's pool and cache
-type ShortLinkServer struct {
-	*cores.ShortLinkService
-}
-
-// NewShortLinkServer create short link server
-func NewShortLinkServer(
-	db *gorm.DB,
-	redisClient *redis.Client,
-	opts ...cores.ServiceOption,
-) *ShortLinkServer {
-	repo := gormx.NewGormShortLinkRepository(db)
-
-	cache := redisx.NewRedisShortLinkCache(redisClient)
-
-	pool := redisx.NewRedisShortCodePool(redisClient)
-
-	coreService := cores.NewShortLinkService(repo, cache, pool, opts...)
-
-	return &ShortLinkServer{
-		ShortLinkService: coreService,
-	}
-}
-
 func main() {
 	mysqlHost := vos.GetEnvStr("MYSQL_HOST", "localhost")
 	mysqlPort := vos.GetEnvStr("MYSQL_PORT", "3306")
@@ -98,8 +74,11 @@ func main() {
 		vlog.Fatalf("failed to ping redis: %v", err)
 	}
 
-	service := NewShortLinkServer(db, redisClient,
-		cores.WithBatchGenerateSize(batchGenerateSize),
+	repo := gormx.NewGormShortLinkRepository(db)
+	cache := redisx.NewRedisShortLinkCache(redisClient)
+	pool := redisx.NewRedisShortCodePool(redisClient)
+
+	service := cores.NewShortLinkService(repo, cache, pool, cores.WithBatchGenerateSize(batchGenerateSize),
 		cores.WithMaxCodeLength(maxCodeLength),
 		cores.WithAuthToken(authToken))
 

@@ -22,9 +22,9 @@ import "time"
 type LinkStatus int
 
 const (
-	LinkStatusActive  LinkStatus = 1
-	LinkStatusExpire  LinkStatus = 2
-	LinkStatusRecycle LinkStatus = 3
+	LinkStatusActive   LinkStatus = 1 // active
+	LinkStatusExpired  LinkStatus = 2 // expired
+	LinkStatusRecycled LinkStatus = 3 // recycled
 )
 
 type ShortLink struct {
@@ -41,9 +41,9 @@ func (l *ShortLink) IsActive() bool {
 }
 
 func (l *ShortLink) IsExpired() bool {
-	return l.Status == LinkStatusExpire
+	return l.Status == LinkStatusExpired
 }
 
 func (l *ShortLink) IsRecycle() bool {
-	return l.Status == LinkStatusRecycle
+	return l.Status == LinkStatusRecycled
 }

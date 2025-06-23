@@ -223,7 +223,7 @@ func (s *ShortLinkService) ExpireActives() {
 				vlog.Errorf("remove expired active link from cache failed, err: %v", err)
 				return
 			}
-			link.Status = LinkStatusExpire
+			link.Status = LinkStatusExpired
 		}
 
 		if err = s.Repo.Updates(ctx, links); err != nil {
@@ -257,7 +257,7 @@ func (s *ShortLinkService) RecycleExpires() {
 				vlog.Errorf("add recycle expired link to pool failed, err: %v", err)
 				return
 			}
-			link.Status = LinkStatusRecycle
+			link.Status = LinkStatusRecycled
 		}
 
 		if err = s.Repo.Updates(ctx, links); err != nil {

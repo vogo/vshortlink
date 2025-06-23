@@ -113,12 +113,16 @@ func (r *GormShortLinkRepository) Delete(ctx context.Context, id int64) error {
 func (r *GormShortLinkRepository) GetByCode(ctx context.Context, code string) (*cores.ShortLink, error) {
 	// Find the record by code
 	var model ShortLinkModel
-	result := r.db.WithContext(ctx).Where("code = ?", code).First(&model)
+	result := r.db.WithContext(ctx).Where("code = ?", code).
+		Order("id DESC").
+		Limit(1).
+		Find(&model)
 	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			return nil, ErrLinkNotFound
-		}
 		return nil, result.Error
+	}
+
+	if model.ID == 0 {
+		return nil, nil
 	}
 
 	// Convert to core model
@@ -132,7 +136,7 @@ func (r *GormShortLinkRepository) GetByID(ctx context.Context, id int64) (*cores
 	result := r.db.WithContext(ctx).First(&model, id)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
-			return nil, ErrLinkNotFound
+			return nil, nil
 		}
 		return nil, result.Error
 	}
@@ -169,7 +173,7 @@ func (r *GormShortLinkRepository) FindExpires(ctx context.Context, fromID int64,
 	// Find expired links
 	var models []ShortLinkModel
 	result := r.db.WithContext(ctx).
-		Where("id > ? AND status = ? AND expire < ?", fromID, cores.LinkStatusExpire, expiredBefore).
+		Where("id > ? AND status = ? AND expire < ?", fromID, cores.LinkStatusExpired, expiredBefore).
 		Order("id ASC").
 		Limit(limit).
 		Find(&models)
@@ -208,7 +212,7 @@ func (r *GormShortLinkRepository) SaveStartIndex(ctx context.Context, length int
 	// Upsert the start index
 	result := r.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "length"}},
-		DoUpdates: clause.AssignmentColumns([]string{"start_index", "updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"start_index", "modify_time"}),
 	}).Create(&StartIndexModel{
 		Length:     length,
 		StartIndex: index,
