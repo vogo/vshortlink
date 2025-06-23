@@ -38,12 +38,12 @@ func SetStartIndexTableName(name string) {
 
 // ShortLinkModel is the GORM model for short links
 type ShortLinkModel struct {
-	ID         int64            `json:"id" gorm:"primaryKey;autoIncrement" comment:"ID"`
-	Length     int              `json:"length" gorm:"index" comment:"short code length"`
-	Code       string           `json:"code" gorm:"uniqueIndex;size:32" comment:"short code"`
-	Link       string           `json:"link" gorm:"size:2048" comment:"original link"`
-	Expire     time.Time        `json:"expire" gorm:"index" comment:"expire time"`
-	Status     cores.LinkStatus `json:"status" gorm:"index" comment:"status"`
+	ID         int64            `json:"id" gorm:"column:id;primaryKey;autoIncrement" comment:"ID"`
+	Length     int              `json:"length" gorm:"column:length" comment:"short code length"`
+	Code       string           `json:"code" gorm:"column:code" comment:"short code"`
+	Link       string           `json:"link" gorm:"column:link" comment:"original link"`
+	Expire     time.Time        `json:"expire" gorm:"column:expire" comment:"expire time"`
+	Status     cores.LinkStatus `json:"status" gorm:"column:status" comment:"status"`
 	CreateTime time.Time        `json:"create_time" gorm:"column:create_time" comment:"create time"`
 	ModifyTime time.Time        `json:"modify_time" gorm:"column:modify_time" comment:"modify time"`
 }
@@ -55,7 +55,7 @@ func (ShortLinkModel) TableName() string {
 
 // StartIndexModel is the GORM model for storing start indices
 type StartIndexModel struct {
-	Length     int       `json:"length" gorm:"primaryKey" comment:"short code length"`
+	ID         int       `json:"id" gorm:"column:id;primaryKey" comment:"short code length"`
 	StartIndex int64     `json:"start_index" gorm:"column:start_index" comment:"start index"`
 	CreateTime time.Time `json:"create_time" gorm:"column:create_time" comment:"create time"`
 	ModifyTime time.Time `json:"modify_time" gorm:"column:modify_time" comment:"modify time"`

@@ -195,7 +195,7 @@ func (r *GormShortLinkRepository) FindExpires(ctx context.Context, fromID int64,
 func (r *GormShortLinkRepository) GetStartIndex(ctx context.Context, length int) (int64, error) {
 	// Find the start index for the given length
 	var model StartIndexModel
-	result := r.db.WithContext(ctx).Where("length = ?", length).First(&model)
+	result := r.db.WithContext(ctx).Where("id = ?", length).First(&model)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			// If not found, return 0
@@ -211,11 +211,13 @@ func (r *GormShortLinkRepository) GetStartIndex(ctx context.Context, length int)
 func (r *GormShortLinkRepository) SaveStartIndex(ctx context.Context, length int, index int64) error {
 	// Upsert the start index
 	result := r.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "length"}},
+		Columns:   []clause.Column{{Name: "id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"start_index", "modify_time"}),
 	}).Create(&StartIndexModel{
-		Length:     length,
+		ID:         length,
 		StartIndex: index,
+		CreateTime: time.Now(),
+		ModifyTime: time.Now(),
 	})
 
 	if result.Error != nil {
