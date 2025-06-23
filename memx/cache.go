@@ -33,13 +33,13 @@ type CacheItem struct {
 type MemoryShortLinkCache struct {
 	mutex sync.RWMutex
 	// map[length]map[code]CacheItem
-	cache map[int]map[string]CacheItem
+	cache map[int]map[string]*CacheItem
 }
 
 // NewMemoryShortLinkCache creates a new MemoryShortLinkCache
 func NewMemoryShortLinkCache() *MemoryShortLinkCache {
 	return &MemoryShortLinkCache{
-		cache: make(map[int]map[string]CacheItem),
+		cache: make(map[int]map[string]*CacheItem),
 	}
 }
 
@@ -60,6 +60,7 @@ func (c *MemoryShortLinkCache) Get(ctx context.Context, length int, code string)
 
 	// Check if the item is expired
 	if time.Now().After(item.ExpireTime) {
+		delete(codeMap, code)
 		return "", false
 	}
 
@@ -74,12 +75,12 @@ func (c *MemoryShortLinkCache) Add(ctx context.Context, length int, code string,
 	// Initialize the code map if it doesn't exist
 	codeMap, exists := c.cache[length]
 	if !exists {
-		codeMap = make(map[string]CacheItem)
+		codeMap = make(map[string]*CacheItem)
 		c.cache[length] = codeMap
 	}
 
 	// Add the item to the cache
-	codeMap[code] = CacheItem{
+	codeMap[code] = &CacheItem{
 		Link:       link,
 		ExpireTime: expireTime,
 	}
@@ -98,6 +99,22 @@ func (c *MemoryShortLinkCache) Remove(ctx context.Context, length int, code stri
 	}
 
 	delete(codeMap, code)
+
+	return nil
+}
+
+// Close implements cores.ShortLinkCache.Close
+func (c *MemoryShortLinkCache) Close(ctx context.Context) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	// 清空缓存
+	for k := range c.cache {
+		delete(c.cache, k)
+	}
+
+	// 重新初始化缓存
+	c.cache = make(map[int]map[string]*CacheItem)
 
 	return nil
 }

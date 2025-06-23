@@ -43,10 +43,15 @@ func (s *ShortLinkService) HttpHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	link, ok := s.Cache.Get(r.Context(), len(code), code)
-	if !ok || link == "" {
-		http.NotFound(w, r)
-		return
+	link, ok := s.GetMemLRUCache(code)
+	if !ok {
+		link, ok = s.Cache.Get(r.Context(), len(code), code)
+		if !ok || link == "" {
+			http.NotFound(w, r)
+			return
+		}
+
+		s.AddMemLRUCache(code, link)
 	}
 
 	http.Redirect(w, r, link, http.StatusFound)

@@ -52,7 +52,7 @@ func RedisExample() {
 		cores.WithMaxCodeLength(6))
 
 	// 停止服务（在函数结束时）
-	defer service.Stop()
+	defer service.Close()
 
 	// 创建一个短链接
 	link, err := service.Create(ctx, "https://example.com", 3, time.Now().Add(time.Minute))

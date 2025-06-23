@@ -116,3 +116,8 @@ func (p *MemoryShortCodePool) Unlock(ctx context.Context, length int) {
 	// Unlock the pool
 	delete(p.lockStatus, length)
 }
+
+// Close implements cores.ShortCodePool.Close
+func (p *MemoryShortCodePool) Close(ctx context.Context) error {
+	return nil
+}

@@ -113,3 +113,9 @@ func (c *RedisShortLinkCache) Remove(ctx context.Context, length int, code strin
 
 	return nil
 }
+
+// Close implements cores.ShortLinkCache.Close
+func (c *RedisShortLinkCache) Close(ctx context.Context) error {
+	// Note: We don't close the Redis client as it's typically managed by the application
+	return nil
+}

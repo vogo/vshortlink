@@ -103,6 +103,8 @@ func main() {
 		cores.WithMaxCodeLength(maxCodeLength),
 		cores.WithAuthToken(authToken))
 
+	defer service.Close()
+
 	http.HandleFunc("/", service.HttpHandle)
 
 	serverAddr := fmt.Sprintf(":%s", serverPort)

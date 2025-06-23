@@ -182,3 +182,9 @@ func (p *GormShortCodePool) Unlock(ctx context.Context, length int) {
 	// Delete the lock record
 	p.db.WithContext(ctx).Where("length = ?", length).Delete(&PoolLockModel{})
 }
+
+// Close implements cores.ShortCodePool.Close
+func (p *GormShortCodePool) Close(ctx context.Context) error {
+	// Note: We don't close the DB connection as it's typically managed by the application
+	return nil
+}

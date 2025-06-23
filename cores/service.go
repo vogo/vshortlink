@@ -22,6 +22,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/vogo/vogo/vlog"
 	"github.com/vogo/vogo/vsync/vrun"
 )
@@ -33,6 +34,10 @@ type ShortLinkService struct {
 	Cache ShortLinkCache
 	Pool  ShortCodePool
 
+	memLRUCache     *expirable.LRU[string, string]
+	memLRUCacheSize int
+	memLRUCacheTTL  time.Duration
+
 	batchGenerateSize int64
 	maxCodeLength     int
 	authToken         string
@@ -40,47 +45,64 @@ type ShortLinkService struct {
 	generators map[int]*ShortCodeGenerator
 }
 
-// ServiceOption 定义一个函数类型，用于设置ShortLinkService的选项
 type ServiceOption func(*ShortLinkService)
 
-// WithBatchGenerateSize 设置批量生成短码的大小
 func WithBatchGenerateSize(size int64) ServiceOption {
 	return func(s *ShortLinkService) {
 		s.batchGenerateSize = size
 	}
 }
 
-// WithMaxCodeLength 设置最大短码长度
 func WithMaxCodeLength(length int) ServiceOption {
 	return func(s *ShortLinkService) {
 		s.maxCodeLength = length
 	}
 }
 
-// WithAuthToken 设置认证令牌
 func WithAuthToken(token string) ServiceOption {
 	return func(s *ShortLinkService) {
 		s.authToken = token
 	}
 }
 
+func WithRunner(runner *vrun.Runner) ServiceOption {
+	return func(s *ShortLinkService) {
+		s.runner = runner
+	}
+}
+
+func WithMemLRUCacheSize(size int) ServiceOption {
+	return func(s *ShortLinkService) {
+		s.memLRUCacheSize = size
+	}
+}
+
+func WithMemLRUCacheTTL(ttl time.Duration) ServiceOption {
+	return func(s *ShortLinkService) {
+		s.memLRUCacheTTL = ttl
+	}
+}
+
 func NewShortLinkService(repo ShortLinkRepository, cache ShortLinkCache, pool ShortCodePool, opts ...ServiceOption) *ShortLinkService {
-	// 设置默认值
 	svc := &ShortLinkService{
 		runner: vrun.New(),
 
 		Repo:              repo,
 		Cache:             cache,
 		Pool:              pool,
-		batchGenerateSize: 100, // 默认值
-		maxCodeLength:     6,   // 默认值
+		batchGenerateSize: 100,
+		maxCodeLength:     9,
 		generators:        map[int]*ShortCodeGenerator{},
+
+		memLRUCacheSize: 10240,
+		memLRUCacheTTL:  time.Minute * 5,
 	}
 
-	// 应用所有选项
 	for _, opt := range opts {
 		opt(svc)
 	}
+
+	svc.memLRUCache = expirable.NewLRU[string, string](svc.memLRUCacheSize, nil, svc.memLRUCacheTTL)
 
 	ctx := context.Background()
 
@@ -101,17 +123,26 @@ func NewShortLinkService(repo ShortLinkRepository, cache ShortLinkCache, pool Sh
 	return svc
 }
 
-func (s *ShortLinkService) Stop() {
+func (s *ShortLinkService) Close() {
 	s.runner.Stop()
+
+	// 关闭缓存
+	ctx := context.Background()
+	if err := s.Cache.Close(ctx); err != nil {
+		vlog.Errorf("close cache failed: %v", err)
+	}
+
+	// 关闭短码池
+	if err := s.Pool.Close(ctx); err != nil {
+		vlog.Errorf("close pool failed: %v", err)
+	}
 }
 
 func (s *ShortLinkService) Create(ctx context.Context, link string, shortCodeLength int, expireTime time.Time) (*ShortLink, error) {
-	// 1. check link length
 	if shortCodeLength < 1 || shortCodeLength > s.maxCodeLength {
 		return nil, errors.New("invalid short code length")
 	}
 
-	// 2. generate short code
 	shortCode, enough, err := s.Pool.Pull(ctx, shortCodeLength)
 	if err != nil {
 		return nil, err
@@ -125,7 +156,6 @@ func (s *ShortLinkService) Create(ctx context.Context, link string, shortCodeLen
 		return nil, err
 	}
 
-	// 3. save link
 	shortLink := &ShortLink{
 		Code:   shortCode,
 		Length: shortCodeLength,

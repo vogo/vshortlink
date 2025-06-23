@@ -17,14 +17,10 @@
 
 package cores
 
-import (
-	"context"
-	"time"
-)
+func (s *ShortLinkService) AddMemLRUCache(shortCode, link string) {
+	s.memLRUCache.Add(shortCode, link)
+}
 
-type ShortLinkCache interface {
-	Get(ctx context.Context, length int, code string) (string, bool)
-	Add(ctx context.Context, length int, code string, link string, expireTime time.Time) error
-	Remove(ctx context.Context, length int, code string) error
-	Close(ctx context.Context) error
+func (s *ShortLinkService) GetMemLRUCache(shortCode string) (string, bool) {
+	return s.memLRUCache.Get(shortCode)
 }

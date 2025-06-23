@@ -166,3 +166,9 @@ func (p *RedisShortCodePool) Unlock(ctx context.Context, length int) {
 	// Delete the lock key
 	p.redis.Del(ctx, getLockKey(length))
 }
+
+// Close implements cores.ShortCodePool.Close
+func (p *RedisShortCodePool) Close(ctx context.Context) error {
+	// Note: We don't close the Redis client as it's typically managed by the application
+	return nil
+}

@@ -29,4 +29,6 @@ type ShortCodePool interface {
 
 	Lock(ctx context.Context, length int, expire time.Duration) error
 	Unlock(ctx context.Context, length int)
+
+	Close(ctx context.Context) error
 }

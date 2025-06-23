@@ -107,3 +107,9 @@ func (c *GormShortLinkCache) Remove(ctx context.Context, length int, code string
 
 	return nil
 }
+
+// Close implements cores.ShortLinkCache.Close
+func (c *GormShortLinkCache) Close(ctx context.Context) error {
+	// Note: We don't close the GORM DB connection as it's typically managed by the application
+	return nil
+}

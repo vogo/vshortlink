@@ -32,7 +32,7 @@ func main() {
 	service := memx.NewMemoryShortLinkService(
 		cores.WithBatchGenerateSize(100),
 		cores.WithMaxCodeLength(6))
-	defer service.Stop()
+	defer service.Close()
 
 	// Create a new short link
 	ctx := context.Background()
