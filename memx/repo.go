@@ -19,10 +19,17 @@ package memx
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
 	"github.com/vogo/vshortlink/cores"
+)
+
+// Error definitions
+var (
+	// ErrLinkNotFound is returned when a short link is not found
+	ErrLinkNotFound = errors.New("short link not found")
 )
 
 // MemoryShortLinkRepository implements cores.ShortLinkRepository interface with in-memory storage

@@ -20,37 +20,53 @@ package redisx
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
 const (
-	// Redis key prefixes
-	cacheKeyPrefix = "shortlink:cache:%d" // shortlink:cache:{length}
+	// Redis cache key format
+	cacheKeyFormat = "shortlink:cache:%d" // shortlink:cache:{length}
 )
 
 // RedisShortLinkCache implements cores.ShortLinkCache interface with Redis storage
 type RedisShortLinkCache struct {
-	redis *redis.Client
+	redis     *redis.Client
+	keyPrefix string
 }
 
-// NewRedisShortLinkCache creates a new RedisShortLinkCache
-func NewRedisShortLinkCache(redisClient *redis.Client) *RedisShortLinkCache {
-	return &RedisShortLinkCache{
-		redis: redisClient,
+type CacheOption func(c *RedisShortLinkCache)
+
+func WithCacheKeyPrefix(prefix string) CacheOption {
+	return func(c *RedisShortLinkCache) {
+		c.keyPrefix = prefix
 	}
 }
 
+// NewRedisShortLinkCache creates a new RedisShortLinkCache
+func NewRedisShortLinkCache(redisClient *redis.Client, opts ...CacheOption) *RedisShortLinkCache {
+	c := &RedisShortLinkCache{
+		redis: redisClient,
+	}
+
+	for _, opt := range opts {
+		opt(c)
+	}
+
+	return c
+}
+
 // getCacheKey returns the Redis key for the cache of the given length
-func getCacheKey(length int) string {
-	return fmt.Sprintf(cacheKeyPrefix, length)
+func (c *RedisShortLinkCache) getCacheKey(length int) string {
+	return c.keyPrefix + fmt.Sprintf(cacheKeyFormat, length)
 }
 
 // Get implements cores.ShortLinkCache.Get
 func (c *RedisShortLinkCache) Get(ctx context.Context, length int, code string) (string, bool) {
-	// Use HGET to get the link from the cache
-	result := c.redis.HGet(ctx, getCacheKey(length), code)
+	result := c.redis.HGet(ctx, c.getCacheKey(length), code)
 	if result.Err() != nil {
 		if result.Err() == redis.Nil {
 			return "", false
@@ -58,8 +74,24 @@ func (c *RedisShortLinkCache) Get(ctx context.Context, length int, code string) 
 		return "", false
 	}
 
-	link, err := result.Result()
+	value, err := result.Result()
 	if err != nil {
+		return "", false
+	}
+
+	parts := splitLinkAndExpireTime(value)
+	if len(parts) != 2 {
+		return "", false
+	}
+
+	link := parts[0]
+	expireTimeUnix, err := parseExpireTime(parts[1])
+	if err != nil {
+		return "", false
+	}
+
+	if time.Now().After(time.Unix(expireTimeUnix, 0)) {
+		_ = c.Remove(ctx, length, code)
 		return "", false
 	}
 
@@ -68,36 +100,11 @@ func (c *RedisShortLinkCache) Get(ctx context.Context, length int, code string) 
 
 // Add implements cores.ShortLinkCache.Add
 func (c *RedisShortLinkCache) Add(ctx context.Context, length int, code string, link string, expireTime time.Time) error {
-	// Use HSET to add the link to the cache
-	result := c.redis.HSet(ctx, getCacheKey(length), code, link)
+	value := formatLinkWithExpireTime(link, expireTime)
+
+	result := c.redis.HSet(ctx, c.getCacheKey(length), code, value)
 	if result.Err() != nil {
 		return result.Err()
-	}
-
-	// Set expiration time for the cache key if not already set
-	// Note: This sets expiration for the entire hash, not just this field
-	// In a production environment, you might want to use a more sophisticated approach
-	// to handle individual field expirations
-	ttl := c.redis.TTL(ctx, getCacheKey(length))
-	if ttl.Err() != nil {
-		return ttl.Err()
-	}
-
-	ttlDuration, err := ttl.Result()
-	if err != nil {
-		return err
-	}
-
-	// If TTL is not set or less than the new expiration time, set it
-	if ttlDuration == -1 || time.Now().Add(ttlDuration).Before(expireTime) {
-		// Calculate duration until expiration
-		duration := time.Until(expireTime)
-		if duration > 0 {
-			expireResult := c.redis.Expire(ctx, getCacheKey(length), duration)
-			if expireResult.Err() != nil {
-				return expireResult.Err()
-			}
-		}
 	}
 
 	return nil
@@ -105,8 +112,7 @@ func (c *RedisShortLinkCache) Add(ctx context.Context, length int, code string, 
 
 // Remove implements cores.ShortLinkCache.Remove
 func (c *RedisShortLinkCache) Remove(ctx context.Context, length int, code string) error {
-	// Use HDEL to remove the link from the cache
-	result := c.redis.HDel(ctx, getCacheKey(length), code)
+	result := c.redis.HDel(ctx, c.getCacheKey(length), code)
 	if result.Err() != nil {
 		return result.Err()
 	}
@@ -118,4 +124,20 @@ func (c *RedisShortLinkCache) Remove(ctx context.Context, length int, code strin
 func (c *RedisShortLinkCache) Close(ctx context.Context) error {
 	// Note: We don't close the Redis client as it's typically managed by the application
 	return nil
+}
+
+// formatLinkWithExpireTime 将link和expireTime合并为一个字符串
+// 格式为：link\nexpireTime，其中expireTime为Unix时间戳
+func formatLinkWithExpireTime(link string, expireTime time.Time) string {
+	return link + "\n" + strconv.FormatInt(expireTime.Unix(), 10)
+}
+
+// splitLinkAndExpireTime 将合并的值分割为link和expireTime
+func splitLinkAndExpireTime(value string) []string {
+	return strings.SplitN(value, "\n", 2)
+}
+
+// parseExpireTime 解析过期时间字符串为Unix时间戳
+func parseExpireTime(expireTimeStr string) (int64, error) {
+	return strconv.ParseInt(expireTimeStr, 10, 64)
 }

@@ -27,9 +27,12 @@ import (
 )
 
 func main() {
-	// Create a new memory-based short link service
-	// batchGenerateSize: 100, maxCodeLength: 6
-	service := memx.NewMemoryShortLinkService(
+	repo := memx.NewMemoryShortLinkRepository()
+	cache := memx.NewMemoryShortLinkCache()
+	pool := memx.NewMemoryShortCodePool()
+
+	// Create the core service
+	service := cores.NewShortLinkService(repo, cache, pool,
 		cores.WithBatchGenerateSize(100),
 		cores.WithMaxCodeLength(6))
 	defer service.Close()

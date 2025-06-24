@@ -25,19 +25,18 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/vogo/vshortlink/cores"
+	"github.com/vogo/vshortlink/memx"
 	"github.com/vogo/vshortlink/redisx"
 )
 
 // RedisExample demonstrates how to use the Redis-based short link service
 func RedisExample() {
-	// 创建Redis客户端
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "", // 无密码
 		DB:       0,  // 使用默认DB
 	})
 
-	// 测试Redis连接
 	ctx := context.Background()
 	pong, err := redisClient.Ping(ctx).Result()
 	if err != nil {
@@ -45,16 +44,12 @@ func RedisExample() {
 	}
 	log.Printf("Redis连接成功: %s", pong)
 
-	// 创建基于Redis的短链接服务
-	// batchGenerateSize: 100, maxCodeLength: 6
-	service := redisx.NewRedisShortLinkService(redisClient,
-		cores.WithBatchGenerateSize(100),
-		cores.WithMaxCodeLength(6))
-
-	// 停止服务（在函数结束时）
+	repo := memx.NewMemoryShortLinkRepository()
+	cache := redisx.NewRedisShortLinkCache(redisClient)
+	pool := redisx.NewRedisShortCodePool(redisClient)
+	service := cores.NewShortLinkService(repo, cache, pool)
 	defer service.Close()
 
-	// 创建一个短链接
 	link, err := service.Create(ctx, "https://example.com", 3, time.Now().Add(time.Minute))
 	if err != nil {
 		log.Fatalf("创建短链接失败: %v", err)
@@ -62,7 +57,6 @@ func RedisExample() {
 
 	log.Printf("创建短链接成功: %+v", link)
 
-	// 通过短码获取链接
 	foundLink, err := service.Repo.GetByCode(ctx, link.Code)
 	if err != nil {
 		log.Fatalf("获取短链接失败: %v", err)
@@ -70,21 +64,17 @@ func RedisExample() {
 
 	log.Printf("获取短链接成功: %+v", foundLink)
 
-	// 等待链接过期
 	log.Println("等待短链接过期...")
 	time.Sleep(time.Minute + time.Second)
 
-	// 处理过期的链接
 	log.Println("处理过期的链接...")
 	service.ExpireActives()
 	log.Println("处理过期链接完成")
 
-	// 回收过期的链接
 	log.Println("回收过期的链接...")
 	service.RecycleExpires()
 	log.Println("回收过期链接完成")
 
-	// 创建另一个短链接，应该会重用回收的短码
 	newLink, err := service.Create(ctx, "https://example.org", 3, time.Now().Add(time.Hour))
 	if err != nil {
 		log.Fatalf("创建新短链接失败: %v", err)

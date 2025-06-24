@@ -19,6 +19,7 @@ package redisx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -28,36 +29,54 @@ import (
 
 const (
 	// Redis key prefixes
-	poolKeyPrefix = "shortlink:pool:%d"      // shortlink:pool:{length}
-	lockKeyPrefix = "shortlink:pool:lock:%d" // shortlink:pool:lock:{length}
+	poolKeyFormat = "shortlink:pool:%d"      // shortlink:pool:{length}
+	lockKeyFormat = "shortlink:pool:lock:%d" // shortlink:pool:lock:{length}
 )
+
+// ErrPoolLocked is returned when a short code pool is locked
+var ErrPoolLocked = errors.New("short code pool is locked")
 
 // RedisShortCodePool implements cores.ShortCodePool interface with Redis storage
 type RedisShortCodePool struct {
-	redis *redis.Client
+	redis     *redis.Client
+	keyPrefix string
 }
 
-// NewRedisShortCodePool creates a new RedisShortCodePool
-func NewRedisShortCodePool(redisClient *redis.Client) *RedisShortCodePool {
-	return &RedisShortCodePool{
-		redis: redisClient,
+type PoolOption func(c *RedisShortCodePool)
+
+func WithPoolKeyPrefix(prefix string) PoolOption {
+	return func(c *RedisShortCodePool) {
+		c.keyPrefix = prefix
 	}
 }
 
+// NewRedisShortCodePool creates a new RedisShortCodePool
+func NewRedisShortCodePool(redisClient *redis.Client, opts ...PoolOption) *RedisShortCodePool {
+	pool := &RedisShortCodePool{
+		redis: redisClient,
+	}
+
+	for _, opt := range opts {
+		opt(pool)
+	}
+
+	return pool
+}
+
 // getPoolKey returns the Redis key for the short code pool of the given length
-func getPoolKey(length int) string {
-	return fmt.Sprintf(poolKeyPrefix, length)
+func (p *RedisShortCodePool) getPoolKey(length int) string {
+	return p.keyPrefix + fmt.Sprintf(poolKeyFormat, length)
 }
 
 // getLockKey returns the Redis key for the lock of the short code pool of the given length
-func getLockKey(length int) string {
-	return fmt.Sprintf(lockKeyPrefix, length)
+func (p *RedisShortCodePool) getLockKey(length int) string {
+	return p.keyPrefix + fmt.Sprintf(lockKeyFormat, length)
 }
 
 // Pull implements cores.ShortCodePool.Pull
 func (p *RedisShortCodePool) Pull(ctx context.Context, length int) (string, bool, error) {
 	// Use ZPOPMIN to get the earliest added short code
-	result := p.redis.ZPopMin(ctx, getPoolKey(length))
+	result := p.redis.ZPopMin(ctx, p.getPoolKey(length))
 	if result.Err() != nil {
 		return "", false, result.Err()
 	}
@@ -81,15 +100,14 @@ func (p *RedisShortCodePool) Pull(ctx context.Context, length int) (string, bool
 		return code, false, nil
 	}
 
-	enough := size > 10
+	enough := size > 100
 
 	return code, enough, nil
 }
 
 // Add implements cores.ShortCodePool.Add
 func (p *RedisShortCodePool) Add(ctx context.Context, length int, shortCode string) error {
-	// Use ZADD to add the short code to the pool with the current timestamp as score
-	result := p.redis.ZAdd(ctx, getPoolKey(length), redis.Z{
+	result := p.redis.ZAdd(ctx, p.getPoolKey(length), redis.Z{
 		Score:  float64(time.Now().Unix()),
 		Member: shortCode,
 	})
@@ -104,7 +122,7 @@ func (p *RedisShortCodePool) Add(ctx context.Context, length int, shortCode stri
 // Size implements cores.ShortCodePool.Size
 func (p *RedisShortCodePool) Size(ctx context.Context, length int) (int64, error) {
 	// Use ZCARD to get the number of short codes in the pool
-	result := p.redis.ZCard(ctx, getPoolKey(length))
+	result := p.redis.ZCard(ctx, p.getPoolKey(length))
 	if result.Err() != nil {
 		return 0, result.Err()
 	}
@@ -115,7 +133,7 @@ func (p *RedisShortCodePool) Size(ctx context.Context, length int) (int64, error
 // Lock implements cores.ShortCodePool.Lock
 func (p *RedisShortCodePool) Lock(ctx context.Context, length int, expire time.Duration) error {
 	// Use SET with NX option to implement a lock
-	result := p.redis.SetNX(ctx, getLockKey(length), strconv.FormatInt(time.Now().Add(expire).Unix(), 10), expire)
+	result := p.redis.SetNX(ctx, p.getLockKey(length), strconv.FormatInt(time.Now().Add(expire).Unix(), 10), expire)
 	if result.Err() != nil {
 		return result.Err()
 	}
@@ -128,7 +146,7 @@ func (p *RedisShortCodePool) Lock(ctx context.Context, length int, expire time.D
 
 	if !success {
 		// Check if the lock is expired
-		valueResult := p.redis.Get(ctx, getLockKey(length))
+		valueResult := p.redis.Get(ctx, p.getLockKey(length))
 		if valueResult.Err() != nil {
 			if valueResult.Err() == redis.Nil {
 				// Lock key doesn't exist, try to lock again
@@ -151,7 +169,7 @@ func (p *RedisShortCodePool) Lock(ctx context.Context, length int, expire time.D
 		// Check if the lock is expired
 		if time.Now().Unix() > expireTime {
 			// Lock is expired, delete it and try to lock again
-			p.redis.Del(ctx, getLockKey(length))
+			p.redis.Del(ctx, p.getLockKey(length))
 			return p.Lock(ctx, length, expire)
 		}
 
@@ -163,8 +181,7 @@ func (p *RedisShortCodePool) Lock(ctx context.Context, length int, expire time.D
 
 // Unlock implements cores.ShortCodePool.Unlock
 func (p *RedisShortCodePool) Unlock(ctx context.Context, length int) {
-	// Delete the lock key
-	p.redis.Del(ctx, getLockKey(length))
+	p.redis.Del(ctx, p.getLockKey(length))
 }
 
 // Close implements cores.ShortCodePool.Close

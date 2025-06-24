@@ -41,18 +41,13 @@ func GormExample() {
 		panic(fmt.Sprintf("failed to connect to database: %v", err))
 	}
 
-	// Create GORM repository
 	repo := gormx.NewGormShortLinkRepository(db)
-
-	// Create cache (using in-memory implementation for better performance)
 	cache := memx.NewMemoryShortLinkCache()
-
-	// Create pool
 	pool := memx.NewMemoryShortCodePool()
 
-	// Create a new GORM-based ShortLinkService
-	// batchGenerateSize: 100, maxCodeLength: 6
-	service := cores.NewShortLinkService(repo, cache, pool, cores.WithBatchGenerateSize(100), cores.WithMaxCodeLength(6))
+	service := cores.NewShortLinkService(repo, cache, pool,
+		cores.WithBatchGenerateSize(100),
+		cores.WithMaxCodeLength(6))
 
 	// Create a context
 	ctx := context.Background()
