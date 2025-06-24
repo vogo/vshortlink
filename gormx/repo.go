@@ -193,15 +193,14 @@ func (r *GormShortLinkRepository) FindExpires(ctx context.Context, fromID int64,
 
 // GetStartIndex implements cores.ShortLinkRepository.GetStartIndex
 func (r *GormShortLinkRepository) GetStartIndex(ctx context.Context, length int) (int64, error) {
-	// Find the start index for the given length
 	var model StartIndexModel
-	result := r.db.WithContext(ctx).Where("id = ?", length).First(&model)
+	result := r.db.WithContext(ctx).Where("id = ?", length).Limit(1).Find(&model)
 	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			// If not found, return 0
-			return 0, nil
-		}
 		return 0, result.Error
+	}
+
+	if model.ID == 0 {
+		return 0, nil
 	}
 
 	return model.StartIndex, nil
