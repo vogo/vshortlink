@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/vogo/vogo/vencoding/vjson"
+	"github.com/vogo/vogo/vlog"
 	"github.com/vogo/vogo/vnet/vhttp/vhttpresp"
 )
 
@@ -96,6 +97,9 @@ func (s *ShortLinkService) HandleCreate(w http.ResponseWriter, r *http.Request) 
 		vhttpresp.BadError(w, r, err)
 		return
 	}
+
+	vlog.Infof("create short link, code:%s, link:%s, expire:%s",
+		shortLink.Code, shortLink.Link, shortLink.Expire)
 
 	vhttpresp.Success(w, r, shortLink)
 }
