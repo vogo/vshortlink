@@ -184,6 +184,28 @@ func (p *RedisShortCodePool) Unlock(ctx context.Context, length int) {
 	p.redis.Del(ctx, p.getLockKey(length))
 }
 
+// Remove implements cores.ShortCodePool.Remove
+func (p *RedisShortCodePool) Remove(ctx context.Context, length int, shortCode string) error {
+	// Use ZREM to remove the specific short code from the pool
+	result := p.redis.ZRem(ctx, p.getPoolKey(length), shortCode)
+	if result.Err() != nil {
+		return result.Err()
+	}
+
+	return nil
+}
+
+// Clear implements cores.ShortCodePool.Clear
+func (p *RedisShortCodePool) Clear(ctx context.Context, length int) error {
+	// Use DEL to remove the entire pool key
+	result := p.redis.Del(ctx, p.getPoolKey(length))
+	if result.Err() != nil {
+		return result.Err()
+	}
+
+	return nil
+}
+
 // Close implements cores.ShortCodePool.Close
 func (p *RedisShortCodePool) Close(ctx context.Context) error {
 	// Note: We don't close the Redis client as it's typically managed by the application

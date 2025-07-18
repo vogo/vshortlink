@@ -33,16 +33,16 @@ import (
 func RedisExample() {
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
-		Password: "", // 无密码
-		DB:       0,  // 使用默认DB
+		Password: "", // No password
+		DB:       0,  // Use default DB
 	})
 
 	ctx := context.Background()
 	pong, err := redisClient.Ping(ctx).Result()
 	if err != nil {
-		log.Fatalf("无法连接到Redis: %v", err)
+		log.Fatalf("Unable to connect to Redis: %v", err)
 	}
-	log.Printf("Redis连接成功: %s", pong)
+	log.Printf("Redis connection successful: %s", pong)
 
 	repo := memx.NewMemoryShortLinkRepository()
 	cache := redisx.NewRedisShortLinkCache(redisClient)
@@ -52,36 +52,36 @@ func RedisExample() {
 
 	link, err := service.Create(ctx, "https://example.com", 3, time.Now().Add(time.Minute))
 	if err != nil {
-		log.Fatalf("创建短链接失败: %v", err)
+		log.Fatalf("Failed to create short link: %v", err)
 	}
 
-	log.Printf("创建短链接成功: %+v", link)
+	log.Printf("Short link created successfully: %+v", link)
 
 	foundLink, err := service.Repo.GetByCode(ctx, link.Code)
 	if err != nil {
-		log.Fatalf("获取短链接失败: %v", err)
+		log.Fatalf("Failed to get short link: %v", err)
 	}
 
-	log.Printf("获取短链接成功: %+v", foundLink)
+	log.Printf("Short link retrieved successfully: %+v", foundLink)
 
-	log.Println("等待短链接过期...")
+	log.Println("Waiting for short link to expire...")
 	time.Sleep(time.Minute + time.Second)
 
-	log.Println("处理过期的链接...")
+	log.Println("Processing expired links...")
 	service.ExpireActives()
-	log.Println("处理过期链接完成")
+	log.Println("Expired link processing completed")
 
-	log.Println("回收过期的链接...")
+	log.Println("Recycling expired links...")
 	service.RecycleExpires()
-	log.Println("回收过期链接完成")
+	log.Println("Expired link recycling completed")
 
 	newLink, err := service.Create(ctx, "https://example.org", 3, time.Now().Add(time.Hour))
 	if err != nil {
-		log.Fatalf("创建新短链接失败: %v", err)
+		log.Fatalf("Failed to create new short link: %v", err)
 	}
 
-	log.Printf("创建新短链接成功: %+v", newLink)
-	log.Printf("新短链接是否重用了回收的短码: %v", newLink.Code == link.Code)
+	log.Printf("New short link created successfully: %+v", newLink)
+	log.Printf("Whether the new short link reused the recycled short code: %v", newLink.Code == link.Code)
 
-	fmt.Println("示例运行完成")
+	fmt.Println("Example execution completed")
 }

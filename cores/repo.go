@@ -31,6 +31,8 @@ type ShortLinkRepository interface {
 	GetByID(ctx context.Context, id int64) (*ShortLink, error)
 	FindExpiredActives(ctx context.Context, fromID int64, limit int) ([]*ShortLink, error)
 	FindExpires(ctx context.Context, fromID int64, expiredBefore time.Time, limit int) ([]*ShortLink, error)
+	// FindByLengthAndStatus queries short links by length and status, used to filter used short codes when rebuilding the short code pool
+	FindByLengthAndStatus(ctx context.Context, fromID int64, length int, statuses []LinkStatus, limit int) ([]*ShortLink, error)
 	GetStartIndex(ctx context.Context, length int) (int64, error)
 	SaveStartIndex(ctx context.Context, length int, index int64) error
 }

@@ -108,12 +108,12 @@ func (c *MemoryShortLinkCache) Close(ctx context.Context) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	// 清空缓存
+	// Clear cache
 	for k := range c.cache {
 		delete(c.cache, k)
 	}
 
-	// 重新初始化缓存
+	// Reinitialize cache
 	c.cache = make(map[int]map[string]*CacheItem)
 
 	return nil

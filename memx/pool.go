@@ -117,6 +117,39 @@ func (p *MemoryShortCodePool) Unlock(ctx context.Context, length int) {
 	delete(p.lockStatus, length)
 }
 
+// Remove implements cores.ShortCodePool.Remove
+func (p *MemoryShortCodePool) Remove(ctx context.Context, length int, shortCode string) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	codes, exists := p.pools[length]
+	if !exists {
+		return nil
+	}
+
+	// Find and remove the specific short code
+	for i, code := range codes {
+		if code == shortCode {
+			// Remove the code by slicing
+			p.pools[length] = append(codes[:i], codes[i+1:]...)
+			break
+		}
+	}
+
+	return nil
+}
+
+// Clear implements cores.ShortCodePool.Clear
+func (p *MemoryShortCodePool) Clear(ctx context.Context, length int) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	// Clear the pool by creating a new empty slice
+	p.pools[length] = make([]string, 0)
+
+	return nil
+}
+
 // Close implements cores.ShortCodePool.Close
 func (p *MemoryShortCodePool) Close(ctx context.Context) error {
 	return nil

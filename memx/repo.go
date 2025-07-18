@@ -195,6 +195,34 @@ func (r *MemoryShortLinkRepository) GetStartIndex(ctx context.Context, length in
 	return index, nil
 }
 
+// FindByLengthAndStatus implements cores.ShortLinkRepository.FindByLengthAndStatus
+func (r *MemoryShortLinkRepository) FindByLengthAndStatus(ctx context.Context, fromID int64, length int, statuses []cores.LinkStatus, limit int) ([]*cores.ShortLink, error) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	var result []*cores.ShortLink
+	statusMap := make(map[cores.LinkStatus]bool)
+	for _, status := range statuses {
+		statusMap[status] = true
+	}
+
+	for id, link := range r.links {
+		if id <= fromID {
+			continue
+		}
+
+		if link.Length == length && statusMap[link.Status] {
+			result = append(result, link)
+		}
+
+		if len(result) >= limit {
+			break
+		}
+	}
+
+	return result, nil
+}
+
 // SaveStartIndex implements cores.ShortLinkRepository.SaveStartIndex
 func (r *MemoryShortLinkRepository) SaveStartIndex(ctx context.Context, length int, index int64) error {
 	r.mutex.Lock()

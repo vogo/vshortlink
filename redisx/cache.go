@@ -126,18 +126,18 @@ func (c *RedisShortLinkCache) Close(ctx context.Context) error {
 	return nil
 }
 
-// formatLinkWithExpireTime 将link和expireTime合并为一个字符串
-// 格式为：link\nexpireTime，其中expireTime为Unix时间戳
+// formatLinkWithExpireTime merges link and expireTime into a single string
+// Format: link\nexpireTime, where expireTime is Unix timestamp
 func formatLinkWithExpireTime(link string, expireTime time.Time) string {
 	return link + "\n" + strconv.FormatInt(expireTime.Unix(), 10)
 }
 
-// splitLinkAndExpireTime 将合并的值分割为link和expireTime
+// splitLinkAndExpireTime splits the merged value into link and expireTime
 func splitLinkAndExpireTime(value string) []string {
 	return strings.SplitN(value, "\n", 2)
 }
 
-// parseExpireTime 解析过期时间字符串为Unix时间戳
+// parseExpireTime parses the expiration time string to Unix timestamp
 func parseExpireTime(expireTimeStr string) (int64, error) {
 	return strconv.ParseInt(expireTimeStr, 10, 64)
 }

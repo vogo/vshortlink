@@ -25,7 +25,11 @@ import (
 type ShortCodePool interface {
 	Pull(ctx context.Context, length int) (string, bool, error)
 	Add(ctx context.Context, length int, shortCode string) error
+	// Remove removes the specified short code from the short code pool
+	Remove(ctx context.Context, length int, shortCode string) error
 	Size(ctx context.Context, length int) (int64, error)
+	// Clear clears the short code pool of the specified length
+	Clear(ctx context.Context, length int) error
 
 	Lock(ctx context.Context, length int, expire time.Duration) error
 	Unlock(ctx context.Context, length int)

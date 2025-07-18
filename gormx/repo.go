@@ -206,6 +206,29 @@ func (r *GormShortLinkRepository) GetStartIndex(ctx context.Context, length int)
 	return model.StartIndex, nil
 }
 
+// FindByLengthAndStatus implements cores.ShortLinkRepository.FindByLengthAndStatus
+func (r *GormShortLinkRepository) FindByLengthAndStatus(ctx context.Context, fromID int64, length int, statuses []cores.LinkStatus, limit int) ([]*cores.ShortLink, error) {
+	// Find links by length and status
+	var models []ShortLinkModel
+	result := r.db.WithContext(ctx).
+		Where("id > ? AND length = ? AND status IN ?", fromID, length, statuses).
+		Order("id ASC").
+		Limit(limit).
+		Find(&models)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	// Convert to core models
+	links := make([]*cores.ShortLink, len(models))
+	for i, model := range models {
+		links[i] = model.ToCore()
+	}
+
+	return links, nil
+}
+
 // SaveStartIndex implements cores.ShortLinkRepository.SaveStartIndex
 func (r *GormShortLinkRepository) SaveStartIndex(ctx context.Context, length int, index int64) error {
 	// Upsert the start index
