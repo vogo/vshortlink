@@ -74,7 +74,10 @@ func main() {
 		vlog.Fatalf("failed to ping redis: %v", err)
 	}
 
-	repo := gormx.NewGormShortLinkRepository(db)
+	dbFunc := func() *gorm.DB {
+		return db
+	}
+	repo := gormx.NewGormShortLinkRepository(dbFunc)
 	cache := redisx.NewRedisShortLinkCache(redisClient)
 	pool := redisx.NewRedisShortCodePool(redisClient)
 

@@ -107,6 +107,22 @@ func (r *MemoryShortLinkRepository) Delete(ctx context.Context, id int64) error 
 	return nil
 }
 
+// DeleteByCode implements cores.ShortLinkRepository.DeleteByCode
+func (r *MemoryShortLinkRepository) DeleteByCode(ctx context.Context, code string) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	id, exists := r.codeToID[code]
+	if !exists {
+		return ErrLinkNotFound
+	}
+
+	delete(r.codeToID, code)
+	delete(r.links, id)
+
+	return nil
+}
+
 // GetByCode implements cores.ShortLinkRepository.GetByCode
 func (r *MemoryShortLinkRepository) GetByCode(ctx context.Context, code string) (*cores.ShortLink, error) {
 	r.mutex.RLock()

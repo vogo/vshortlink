@@ -39,12 +39,12 @@ func main() {
 
 	// Create a new short link
 	ctx := context.Background()
-	link, err := service.Create(ctx, "https://example.com", 4, time.Now().Add(24*time.Hour))
+	_, err := service.Create(ctx, "https://example.com", 4, time.Now().Add(24*time.Hour))
 	if err != nil {
 		fmt.Printf("Failed to create short link: %v\n", err)
 		return
 	}
-	link, err = service.Create(ctx, "https://example.com", 4, time.Now().Add(24*time.Hour))
+	link, err := service.Create(ctx, "https://example.com", 4, time.Now().Add(24*time.Hour))
 	if err != nil {
 		fmt.Printf("Failed to create short link: %v\n", err)
 		return

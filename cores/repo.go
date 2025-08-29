@@ -27,6 +27,7 @@ type ShortLinkRepository interface {
 	Update(ctx context.Context, link *ShortLink) error
 	Updates(ctx context.Context, links []*ShortLink) error
 	Delete(ctx context.Context, id int64) error
+	DeleteByCode(ctx context.Context, code string) error
 	GetByCode(ctx context.Context, code string) (*ShortLink, error)
 	GetByID(ctx context.Context, id int64) (*ShortLink, error)
 	FindExpiredActives(ctx context.Context, fromID int64, limit int) ([]*ShortLink, error)

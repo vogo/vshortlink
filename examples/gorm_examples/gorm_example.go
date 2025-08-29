@@ -41,7 +41,10 @@ func GormExample() {
 		panic(fmt.Sprintf("failed to connect to database: %v", err))
 	}
 
-	repo := gormx.NewGormShortLinkRepository(db)
+	dbFunc := func() *gorm.DB {
+		return db
+	}
+	repo := gormx.NewGormShortLinkRepository(dbFunc)
 	cache := memx.NewMemoryShortLinkCache()
 	pool := memx.NewMemoryShortCodePool()
 

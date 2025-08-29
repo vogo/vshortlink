@@ -33,8 +33,8 @@ func (s *ShortLinkService) HttpHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if code == "create_link" {
-		s.HandleCreate(w, r)
+	if code == "edit_link" {
+		s.HandleEdit(w, r)
 		return
 	}
 
@@ -58,26 +58,40 @@ func (s *ShortLinkService) HttpHandle(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, link, http.StatusFound)
 }
 
-type CreateLinkRequest struct {
+type EditLinkRequest struct {
+	Op     string    `json:"op"`
+	Code   string    `json:"code"`
 	Link   string    `json:"link"`
 	Length int       `json:"length"`
 	Expire time.Time `json:"expire"`
 }
 
-func (s *ShortLinkService) HandleCreate(w http.ResponseWriter, r *http.Request) {
+func (s *ShortLinkService) HandleEdit(w http.ResponseWriter, r *http.Request) {
 	token := r.Header.Get("Authorization")
 	if s.authToken != "" && token != s.authToken {
 		vhttpresp.BadMsg(w, r, "unauthorized")
 		return
 	}
 
-	var req CreateLinkRequest
+	var req EditLinkRequest
 	err := vjson.UnmarshalStream(r.Body, &req)
 	if err != nil {
 		vhttpresp.BadError(w, r, err)
 		return
 	}
 
+	switch req.Op {
+	case "create":
+		s.httpCreateLink(w, r, req)
+	case "remove":
+		s.httpRemoveLink(w, r, req)
+	default:
+		vhttpresp.BadMsg(w, r, "invalid op")
+		return
+	}
+}
+
+func (s *ShortLinkService) httpCreateLink(w http.ResponseWriter, r *http.Request, req EditLinkRequest) {
 	if req.Link == "" {
 		vhttpresp.BadMsg(w, r, "link is empty")
 		return
@@ -102,4 +116,21 @@ func (s *ShortLinkService) HandleCreate(w http.ResponseWriter, r *http.Request) 
 		shortLink.Code, shortLink.Link, shortLink.Expire)
 
 	vhttpresp.Success(w, r, shortLink)
+}
+
+func (s *ShortLinkService) httpRemoveLink(w http.ResponseWriter, r *http.Request, req EditLinkRequest) {
+	if req.Code == "" {
+		vhttpresp.BadMsg(w, r, "code is empty")
+		return
+	}
+
+	err := s.Remove(r.Context(), req.Code)
+	if err != nil {
+		vhttpresp.BadError(w, r, err)
+		return
+	}
+
+	vlog.Infof("remove short link, code:%s", req.Code)
+
+	vhttpresp.Success(w, r, nil)
 }

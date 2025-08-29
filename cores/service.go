@@ -40,6 +40,7 @@ type ShortLinkService struct {
 
 	batchGenerateSize int64
 	maxCodeLength     int
+	manualCodeLength  int
 	authToken         string
 
 	generators map[int]*ShortCodeGenerator
@@ -56,6 +57,12 @@ func WithBatchGenerateSize(size int64) ServiceOption {
 func WithMaxCodeLength(length int) ServiceOption {
 	return func(s *ShortLinkService) {
 		s.maxCodeLength = length
+	}
+}
+
+func WithManualCodeLength(length int) ServiceOption {
+	return func(s *ShortLinkService) {
+		s.manualCodeLength = length
 	}
 }
 
@@ -92,6 +99,7 @@ func NewShortLinkService(repo ShortLinkRepository, cache ShortLinkCache, pool Sh
 		Pool:              pool,
 		batchGenerateSize: 100,
 		maxCodeLength:     9,
+		manualCodeLength:  3,
 		generators:        map[int]*ShortCodeGenerator{},
 
 		memLRUCacheSize: 10240,
@@ -106,7 +114,7 @@ func NewShortLinkService(repo ShortLinkRepository, cache ShortLinkCache, pool Sh
 
 	ctx := context.Background()
 
-	for i := 1; i <= svc.maxCodeLength; i++ {
+	for i := svc.manualCodeLength + 1; i <= svc.maxCodeLength; i++ {
 		svc.generators[i] = NewShortCodeGenerator(i, int(svc.batchGenerateSize))
 		size, err := pool.Size(ctx, i)
 		if err != nil {
@@ -152,19 +160,23 @@ func (s *ShortLinkService) Create(ctx context.Context, link string, shortCodeLen
 		go s.batchGenerate(ctx, shortCodeLength)
 	}
 
-	if err = s.Cache.Add(ctx, shortCodeLength, shortCode, link, expireTime); err != nil {
+	return s.Add(ctx, shortCode, link, expireTime)
+}
+
+func (s *ShortLinkService) Add(ctx context.Context, code, link string, expireTime time.Time) (*ShortLink, error) {
+	if err := s.Cache.Add(ctx, len(code), code, link, expireTime); err != nil {
 		return nil, err
 	}
 
 	shortLink := &ShortLink{
-		Code:   shortCode,
-		Length: shortCodeLength,
+		Code:   code,
+		Length: len(code),
 		Link:   link,
 		Status: LinkStatusActive,
 		Expire: expireTime,
 	}
 
-	err = s.Repo.Create(ctx, shortLink)
+	err := s.Repo.Create(ctx, shortLink)
 	if err != nil {
 		return nil, err
 	}
@@ -241,6 +253,21 @@ func (s *ShortLinkService) ExpireActives() {
 
 		fromId = links[len(links)-1].ID
 	}
+}
+
+func (s *ShortLinkService) Remove(ctx context.Context, code string) error {
+	removeErr := s.Cache.Remove(ctx, len(code), code)
+	deleteErr := s.Repo.DeleteByCode(ctx, code)
+
+	if removeErr != nil {
+		return removeErr
+	}
+
+	if deleteErr != nil {
+		return deleteErr
+	}
+
+	return nil
 }
 
 func (s *ShortLinkService) RecycleExpires() {
