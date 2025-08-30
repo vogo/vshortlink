@@ -83,6 +83,8 @@ func (s *ShortLinkService) HandleEdit(w http.ResponseWriter, r *http.Request) {
 	switch req.Op {
 	case "create":
 		s.httpCreateLink(w, r, req)
+	case "update":
+		s.httpUpdateLink(w, r, req)
 	case "remove":
 		s.httpRemoveLink(w, r, req)
 	default:
@@ -116,6 +118,24 @@ func (s *ShortLinkService) httpCreateLink(w http.ResponseWriter, r *http.Request
 		shortLink.Code, shortLink.Link, shortLink.Expire)
 
 	vhttpresp.Success(w, r, shortLink)
+}
+
+func (s *ShortLinkService) httpUpdateLink(w http.ResponseWriter, r *http.Request, req EditLinkRequest) {
+	if req.Code == "" || req.Link == "" || req.Expire.IsZero() {
+		vhttpresp.BadMsg(w, r, "code, link, expire is empty")
+		return
+	}
+
+	err := s.Update(r.Context(), req.Code, req.Link, req.Expire)
+	if err != nil {
+		vhttpresp.BadError(w, r, err)
+		return
+	}
+
+	vlog.Infof("update short link, code:%s, link:%s, expire:%s",
+		req.Code, req.Link, req.Expire)
+
+	vhttpresp.Success(w, r, nil)
 }
 
 func (s *ShortLinkService) httpRemoveLink(w http.ResponseWriter, r *http.Request, req EditLinkRequest) {

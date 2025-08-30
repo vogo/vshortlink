@@ -184,6 +184,26 @@ func (s *ShortLinkService) Add(ctx context.Context, code, link string, expireTim
 	return shortLink, nil
 }
 
+func (s *ShortLinkService) Update(ctx context.Context, code, link string, expireTime time.Time) error {
+	shortLink, err := s.Repo.GetByCode(ctx, code)
+	if err != nil {
+		return err
+	}
+
+	if shortLink == nil {
+		return errors.New("short link not found")
+	}
+
+	if err := s.Cache.Add(ctx, len(code), code, link, expireTime); err != nil {
+		return err
+	}
+
+	shortLink.Link = link
+	shortLink.Expire = expireTime
+
+	return s.Repo.Update(ctx, shortLink)
+}
+
 func (s *ShortLinkService) batchGenerate(ctx context.Context, shortCodeLength int) {
 	err := s.Pool.Lock(ctx, shortCodeLength, time.Minute)
 	if err != nil {
