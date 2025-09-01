@@ -104,11 +104,23 @@ func (s *ShortLinkService) httpCreateLink(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if req.Length <= s.manualCodeLength && req.Code == "" {
+		vhttpresp.BadMsg(w, r, "code is empty")
+		return
+	}
+
 	if req.Expire.IsZero() || req.Expire.Before(time.Now()) {
 		req.Expire = time.Now().Add(24 * time.Hour)
 	}
 
-	shortLink, err := s.Create(r.Context(), req.Link, req.Length, req.Expire)
+	var shortLink *ShortLink
+	var err error
+	if req.Length <= s.manualCodeLength {
+		shortLink, err = s.Add(r.Context(), req.Code, req.Link, req.Expire)
+	} else {
+		shortLink, err = s.Create(r.Context(), req.Link, req.Length, req.Expire)
+	}
+
 	if err != nil {
 		vhttpresp.BadError(w, r, err)
 		return
