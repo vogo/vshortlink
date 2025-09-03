@@ -27,6 +27,11 @@ import (
 )
 
 func (s *ShortLinkService) HttpHandle(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	code := r.URL.Path[1:]
 	if code == "" {
 		w.WriteHeader(http.StatusOK)
