@@ -18,6 +18,7 @@
 package cores
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -162,9 +163,9 @@ func (s *ShortLinkService) httpHandleCreate(w http.ResponseWriter, r *http.Reque
 	var shortLink *ShortLink
 	var err error
 	if req.Length <= s.manualCodeLength {
-		shortLink, err = s.Add(r.Context(), req.Code, req.Link, req.Expire)
+		shortLink, err = s.Add(context.Background(), req.Code, req.Link, req.Expire)
 	} else {
-		shortLink, err = s.Create(r.Context(), req.Link, req.Length, req.Expire)
+		shortLink, err = s.Create(context.Background(), req.Link, req.Length, req.Expire)
 	}
 
 	if err != nil {
@@ -184,7 +185,7 @@ func (s *ShortLinkService) httpHandleUpdate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err := s.Update(r.Context(), req.Code, req.Link, req.Expire)
+	err := s.Update(context.Background(), req.Code, req.Link, req.Expire)
 	if err != nil {
 		vhttpresp.BadError(w, r, err)
 		return
@@ -202,7 +203,7 @@ func (s *ShortLinkService) httpHandleRemove(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err := s.Remove(r.Context(), req.Code)
+	err := s.Remove(context.Background(), req.Code)
 	if err != nil {
 		vhttpresp.BadError(w, r, err)
 		return
@@ -235,7 +236,7 @@ func (s *ShortLinkService) httpHandleList(w http.ResponseWriter, r *http.Request
 
 	asc, _ := vhttpquery.Bool(r, "asc")
 
-	shortLinks, err := s.Repo.List(r.Context(), length, statusList, limit, from, asc)
+	shortLinks, err := s.Repo.List(context.Background(), length, statusList, limit, from, asc)
 	if err != nil {
 		vhttpresp.BadError(w, r, err)
 		return
