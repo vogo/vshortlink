@@ -138,9 +138,21 @@ func (s *ShortLinkService) httpHandleCreate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if req.Length <= s.manualCodeLength && req.Code == "" {
-		vhttpresp.BadMsg(w, r, "code is empty")
-		return
+	if req.Length <= s.manualCodeLength {
+		if req.Code == "" {
+			vhttpresp.BadMsg(w, r, "code is empty")
+			return
+		}
+
+		exists, err := s.Repo.GetByCode(r.Context(), req.Code)
+		if err != nil {
+			vhttpresp.BadError(w, r, err)
+			return
+		}
+		if exists != nil && exists.Status != LinkStatusRecycled {
+			vhttpresp.BadMsg(w, r, "code already exists")
+			return
+		}
 	}
 
 	if req.Expire.IsZero() || req.Expire.Before(time.Now()) {
