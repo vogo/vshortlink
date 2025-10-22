@@ -20,6 +20,7 @@ package memx
 import (
 	"context"
 	"errors"
+	"sort"
 	"sync"
 	"time"
 
@@ -211,8 +212,8 @@ func (r *MemoryShortLinkRepository) GetStartIndex(ctx context.Context, length in
 	return index, nil
 }
 
-// FindByLengthAndStatus implements cores.ShortLinkRepository.FindByLengthAndStatus
-func (r *MemoryShortLinkRepository) FindByLengthAndStatus(ctx context.Context, fromID int64, length int, statuses []cores.LinkStatus, limit int) ([]*cores.ShortLink, error) {
+// List implements cores.ShortLinkRepository.List
+func (r *MemoryShortLinkRepository) List(ctx context.Context, length int, statuses []cores.LinkStatus, limit int, fromID int64, ascSort bool) ([]*cores.ShortLink, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
@@ -230,10 +231,20 @@ func (r *MemoryShortLinkRepository) FindByLengthAndStatus(ctx context.Context, f
 		if link.Length == length && statusMap[link.Status] {
 			result = append(result, link)
 		}
+	}
 
-		if len(result) >= limit {
-			break
-		}
+	if ascSort {
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].ID < result[j].ID
+		})
+	} else {
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].ID > result[j].ID
+		})
+	}
+
+	if len(result) > limit {
+		result = result[:limit]
 	}
 
 	return result, nil

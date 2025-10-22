@@ -217,16 +217,29 @@ func (r *GormShortLinkRepository) GetStartIndex(ctx context.Context, length int)
 	return model.StartIndex, nil
 }
 
-// FindByLengthAndStatus implements cores.ShortLinkRepository.FindByLengthAndStatus
-func (r *GormShortLinkRepository) FindByLengthAndStatus(ctx context.Context, fromID int64, length int, statuses []cores.LinkStatus, limit int) ([]*cores.ShortLink, error) {
+// List implements cores.ShortLinkRepository.List
+func (r *GormShortLinkRepository) List(ctx context.Context, length int, statuses []cores.LinkStatus, limit int, fromID int64, ascSort bool) ([]*cores.ShortLink, error) {
 	// Find links by length and status
 	var models []ShortLinkModel
-	result := r.db().WithContext(ctx).
-		Where("id > ? AND length = ? AND status IN ?", fromID, length, statuses).
-		Order("id ASC").
-		Limit(limit).
-		Find(&models)
+	query := r.db().WithContext(ctx).Where("length = ?", length)
+	if fromID > 0 {
+		query = query.Where("id > ? ", fromID)
+	}
+	if len(statuses) > 0 {
+		query = query.Where("status IN ?", statuses)
+	}
 
+	if ascSort {
+		query = query.Order("id ASC")
+	} else {
+		query = query.Order("id DESC")
+	}
+
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	result := query.Find(&models)
 	if result.Error != nil {
 		return nil, result.Error
 	}

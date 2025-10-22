@@ -417,7 +417,7 @@ func (s *ShortLinkService) removeUsedCodesFromPool(ctx context.Context, length i
 	statuses := []LinkStatus{LinkStatusActive, LinkStatusExpired}
 
 	for {
-		links, err := s.Repo.FindByLengthAndStatus(ctx, fromID, length, statuses, limit)
+		links, err := s.Repo.List(ctx, length, statuses, limit, fromID, true)
 		if err != nil {
 			return totalRemoved, err
 		}

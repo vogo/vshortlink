@@ -19,11 +19,17 @@ package cores
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/vogo/vogo/vencoding/vjson"
 	"github.com/vogo/vogo/vlog"
+	"github.com/vogo/vogo/vnet/vhttp/vhttpquery"
 	"github.com/vogo/vogo/vnet/vhttp/vhttpresp"
+)
+
+const (
+	ManagementCodePrefix = "__"
 )
 
 func (s *ShortLinkService) HttpHandle(w http.ResponseWriter, r *http.Request) {
@@ -38,8 +44,8 @@ func (s *ShortLinkService) HttpHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if code == "edit_link" {
-		s.HandleEdit(w, r)
+	if strings.HasPrefix(code, ManagementCodePrefix) {
+		s.HttpHandleManagement(w, r, code[len(ManagementCodePrefix):])
 		return
 	}
 
@@ -63,42 +69,46 @@ func (s *ShortLinkService) HttpHandle(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, link, http.StatusFound)
 }
 
-type EditLinkRequest struct {
-	Op     string    `json:"op"`
-	Code   string    `json:"code"`
-	Link   string    `json:"link"`
-	Length int       `json:"length"`
-	Expire time.Time `json:"expire"`
-}
-
-func (s *ShortLinkService) HandleEdit(w http.ResponseWriter, r *http.Request) {
+func (s *ShortLinkService) HttpHandleManagement(w http.ResponseWriter, r *http.Request, managementOp string) {
 	token := r.Header.Get("Authorization")
 	if s.authToken != "" && token != s.authToken {
 		vhttpresp.BadMsg(w, r, "unauthorized")
 		return
 	}
 
-	var req EditLinkRequest
-	err := vjson.UnmarshalStream(r.Body, &req)
-	if err != nil {
-		vhttpresp.BadError(w, r, err)
-		return
-	}
-
-	switch req.Op {
+	switch managementOp {
 	case "create":
-		s.httpCreateLink(w, r, req)
+		s.httpHandleEdit(w, r, s.httpHandleCreate)
 	case "update":
-		s.httpUpdateLink(w, r, req)
+		s.httpHandleEdit(w, r, s.httpHandleUpdate)
 	case "remove":
-		s.httpRemoveLink(w, r, req)
+		s.httpHandleEdit(w, r, s.httpHandleRemove)
+	case "list":
+		s.httpHandleList(w, r)
 	default:
 		vhttpresp.BadMsg(w, r, "invalid op")
 		return
 	}
 }
 
-func (s *ShortLinkService) httpCreateLink(w http.ResponseWriter, r *http.Request, req EditLinkRequest) {
+type EditLinkRequest struct {
+	Code   string    `json:"code"`
+	Link   string    `json:"link"`
+	Length int       `json:"length"`
+	Expire time.Time `json:"expire"`
+}
+
+func (s *ShortLinkService) httpHandleEdit(w http.ResponseWriter, r *http.Request, editor func(w http.ResponseWriter, r *http.Request, req *EditLinkRequest)) {
+	var req EditLinkRequest
+	err := vjson.UnmarshalStream(r.Body, &req)
+	if err != nil {
+		vhttpresp.BadError(w, r, err)
+		return
+	}
+	editor(w, r, &req)
+}
+
+func (s *ShortLinkService) httpHandleCreate(w http.ResponseWriter, r *http.Request, req *EditLinkRequest) {
 	if req.Link == "" {
 		vhttpresp.BadMsg(w, r, "link is empty")
 		return
@@ -137,7 +147,7 @@ func (s *ShortLinkService) httpCreateLink(w http.ResponseWriter, r *http.Request
 	vhttpresp.Success(w, r, shortLink)
 }
 
-func (s *ShortLinkService) httpUpdateLink(w http.ResponseWriter, r *http.Request, req EditLinkRequest) {
+func (s *ShortLinkService) httpHandleUpdate(w http.ResponseWriter, r *http.Request, req *EditLinkRequest) {
 	if req.Code == "" || req.Link == "" || req.Expire.IsZero() {
 		vhttpresp.BadMsg(w, r, "code, link, expire is empty")
 		return
@@ -155,7 +165,7 @@ func (s *ShortLinkService) httpUpdateLink(w http.ResponseWriter, r *http.Request
 	vhttpresp.Success(w, r, nil)
 }
 
-func (s *ShortLinkService) httpRemoveLink(w http.ResponseWriter, r *http.Request, req EditLinkRequest) {
+func (s *ShortLinkService) httpHandleRemove(w http.ResponseWriter, r *http.Request, req *EditLinkRequest) {
 	if req.Code == "" {
 		vhttpresp.BadMsg(w, r, "code is empty")
 		return
@@ -170,4 +180,35 @@ func (s *ShortLinkService) httpRemoveLink(w http.ResponseWriter, r *http.Request
 	vlog.Infof("remove short link, code:%s", req.Code)
 
 	vhttpresp.Success(w, r, nil)
+}
+
+func (s *ShortLinkService) httpHandleList(w http.ResponseWriter, r *http.Request) {
+	length, ok := vhttpquery.Int(r, "length")
+	if !ok {
+		vhttpresp.BadMsg(w, r, "invalid length")
+		return
+	}
+
+	from, _ := vhttpquery.Int64(r, "from")
+
+	status, _ := vhttpquery.Int(r, "status")
+	statusList := []LinkStatus{}
+	if status > 0 {
+		statusList = []LinkStatus{LinkStatus(status)}
+	}
+
+	limit, _ := vhttpquery.Int(r, "limit")
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+
+	asc, _ := vhttpquery.Bool(r, "asc")
+
+	shortLinks, err := s.Repo.List(r.Context(), length, statusList, limit, from, asc)
+	if err != nil {
+		vhttpresp.BadError(w, r, err)
+		return
+	}
+
+	vhttpresp.Success(w, r, shortLinks)
 }

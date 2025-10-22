@@ -25,7 +25,6 @@ import (
 
 func TestEditLinkEnocde(t *testing.T) {
 	editReq := EditLinkRequest{
-		Op:     "edit",
 		Link:   "https://www.baidu.com",
 		Length: 6,
 		Expire: time.Now().Add(time.Hour * 24 * 365),
@@ -40,7 +39,7 @@ func TestEditLinkEnocde(t *testing.T) {
 }
 
 func TestEditLinkDeocde(t *testing.T) {
-	str := `{"op":"edit","link":"https://www.baidu.com","length":6,"expire":"2026-08-29T15:58:17+08:00"}`
+	str := `{"link":"https://www.baidu.com","length":6,"expire":"2026-08-29T15:58:17+08:00"}`
 
 	var editReq EditLinkRequest
 	err := json.Unmarshal([]byte(str), &editReq)
