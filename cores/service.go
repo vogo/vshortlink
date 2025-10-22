@@ -146,7 +146,7 @@ func (s *ShortLinkService) Close() {
 	}
 }
 
-func (s *ShortLinkService) Create(ctx context.Context, link string, shortCodeLength int, expireTime time.Time) (*ShortLink, error) {
+func (s *ShortLinkService) Create(ctx context.Context, title, link string, shortCodeLength int, expireTime time.Time) (*ShortLink, error) {
 	if shortCodeLength < 1 || shortCodeLength > s.maxCodeLength {
 		return nil, errors.New("invalid short code length")
 	}
@@ -160,10 +160,10 @@ func (s *ShortLinkService) Create(ctx context.Context, link string, shortCodeLen
 		go s.batchGenerate(ctx, shortCodeLength)
 	}
 
-	return s.Add(ctx, shortCode, link, expireTime)
+	return s.Add(ctx, shortCode, title, link, expireTime)
 }
 
-func (s *ShortLinkService) Add(ctx context.Context, code, link string, expireTime time.Time) (*ShortLink, error) {
+func (s *ShortLinkService) Add(ctx context.Context, code, title, link string, expireTime time.Time) (*ShortLink, error) {
 	if err := s.Cache.Add(ctx, len(code), code, link, expireTime); err != nil {
 		return nil, err
 	}
@@ -171,6 +171,7 @@ func (s *ShortLinkService) Add(ctx context.Context, code, link string, expireTim
 	shortLink := &ShortLink{
 		Code:   code,
 		Length: len(code),
+		Title:  title,
 		Link:   link,
 		Status: LinkStatusActive,
 		Expire: expireTime,

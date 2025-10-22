@@ -42,6 +42,7 @@ type ShortLinkModel struct {
 	Length     int              `json:"length" gorm:"column:length" comment:"short code length"`
 	Code       string           `json:"code" gorm:"column:code" comment:"short code"`
 	Link       string           `json:"link" gorm:"column:link" comment:"original link"`
+	Title      string           `json:"title" gorm:"column:title" comment:"link title"`
 	Expire     time.Time        `json:"expire" gorm:"column:expire" comment:"expire time"`
 	Status     cores.LinkStatus `json:"status" gorm:"column:status" comment:"status"`
 	CreateTime time.Time        `json:"create_time" gorm:"column:create_time" comment:"create time"`
@@ -69,12 +70,15 @@ func (StartIndexModel) TableName() string {
 // ToCore converts a ShortLinkModel to a cores.ShortLink
 func (m *ShortLinkModel) ToCore() *cores.ShortLink {
 	return &cores.ShortLink{
-		ID:     m.ID,
-		Length: m.Length,
-		Code:   m.Code,
-		Link:   m.Link,
-		Expire: m.Expire,
-		Status: m.Status,
+		ID:         m.ID,
+		Length:     m.Length,
+		Code:       m.Code,
+		Title:      m.Title,
+		Link:       m.Link,
+		Expire:     m.Expire,
+		Status:     m.Status,
+		CreateTime: m.CreateTime,
+		ModifyTime: m.ModifyTime,
 	}
 }
 
@@ -84,6 +88,7 @@ func FromCore(link *cores.ShortLink) *ShortLinkModel {
 		ID:     link.ID,
 		Length: link.Length,
 		Code:   link.Code,
+		Title:  link.Title,
 		Link:   link.Link,
 		Expire: link.Expire,
 		Status: link.Status,

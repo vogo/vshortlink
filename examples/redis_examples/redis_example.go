@@ -50,7 +50,7 @@ func RedisExample() {
 	service := cores.NewShortLinkService(repo, cache, pool)
 	defer service.Close()
 
-	link, err := service.Create(ctx, "https://example.com", 3, time.Now().Add(time.Minute))
+	link, err := service.Create(ctx, "title1", "https://example.com", 3, time.Now().Add(time.Minute))
 	if err != nil {
 		log.Fatalf("Failed to create short link: %v", err)
 	}
@@ -75,7 +75,7 @@ func RedisExample() {
 	service.RecycleExpires()
 	log.Println("Expired link recycling completed")
 
-	newLink, err := service.Create(ctx, "https://example.org", 3, time.Now().Add(time.Hour))
+	newLink, err := service.Create(ctx, "title2", "https://example.org", 3, time.Now().Add(time.Hour))
 	if err != nil {
 		log.Fatalf("Failed to create new short link: %v", err)
 	}

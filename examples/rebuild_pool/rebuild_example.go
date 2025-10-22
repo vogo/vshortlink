@@ -45,7 +45,7 @@ func main() {
 	// 1. Create some short links to simulate used short codes
 	fmt.Println("=== Creating test short links ===")
 	for i := 0; i < 5; i++ {
-		link, err := service.Create(ctx, fmt.Sprintf("https://example.com/%d", i), 4, time.Now().Add(time.Hour*24))
+		link, err := service.Create(ctx, fmt.Sprintf("title%d", i), fmt.Sprintf("https://example.com/%d", i), 4, time.Now().Add(time.Hour*24))
 		if err != nil {
 			log.Fatalf("Failed to create short link: %v", err)
 		}

@@ -112,6 +112,7 @@ func (s *ShortLinkService) httpHandleGet(w http.ResponseWriter, r *http.Request)
 
 type EditLinkRequest struct {
 	Code   string    `json:"code"`
+	Title  string    `json:"title"`
 	Link   string    `json:"link"`
 	Length int       `json:"length"`
 	Expire time.Time `json:"expire"`
@@ -131,6 +132,10 @@ func (s *ShortLinkService) httpHandleEdit(w http.ResponseWriter, r *http.Request
 func (s *ShortLinkService) httpHandleCreate(w http.ResponseWriter, r *http.Request, req *EditLinkRequest) {
 	if req.Link == "" {
 		vhttpresp.BadMsg(w, r, "link is empty")
+		return
+	}
+	if req.Title == "" {
+		vhttpresp.BadMsg(w, r, "title is empty")
 		return
 	}
 
@@ -163,9 +168,9 @@ func (s *ShortLinkService) httpHandleCreate(w http.ResponseWriter, r *http.Reque
 	var shortLink *ShortLink
 	var err error
 	if req.Length <= s.manualCodeLength {
-		shortLink, err = s.Add(context.Background(), req.Code, req.Link, req.Expire)
+		shortLink, err = s.Add(context.Background(), req.Code, req.Title, req.Link, req.Expire)
 	} else {
-		shortLink, err = s.Create(context.Background(), req.Link, req.Length, req.Expire)
+		shortLink, err = s.Create(context.Background(), req.Title, req.Link, req.Length, req.Expire)
 	}
 
 	if err != nil {

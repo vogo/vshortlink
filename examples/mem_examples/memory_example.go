@@ -39,12 +39,12 @@ func main() {
 
 	// Create a new short link
 	ctx := context.Background()
-	_, err := service.Create(ctx, "https://example.com", 4, time.Now().Add(24*time.Hour))
+	_, err := service.Create(ctx, "title1", "https://example.com", 4, time.Now().Add(24*time.Hour))
 	if err != nil {
 		fmt.Printf("Failed to create short link: %v\n", err)
 		return
 	}
-	link, err := service.Create(ctx, "https://example.com", 4, time.Now().Add(24*time.Hour))
+	link, err := service.Create(ctx, "title2", "https://example.com", 4, time.Now().Add(24*time.Hour))
 	if err != nil {
 		fmt.Printf("Failed to create short link: %v\n", err)
 		return
@@ -54,7 +54,7 @@ func main() {
 	fmt.Printf("Created short link: %s -> %s (expires: %s)\n", link.Code, link.Link, link.Expire.Format(time.RFC3339))
 
 	// Create another short link with a different length
-	link2, err := service.Create(ctx, "https://another-example.com", 5, time.Now().Add(48*time.Hour))
+	link2, err := service.Create(ctx, "title3", "https://another-example.com", 5, time.Now().Add(48*time.Hour))
 	if err != nil {
 		fmt.Printf("Failed to create second short link: %v\n", err)
 		return
@@ -98,7 +98,7 @@ func main() {
 	fmt.Printf("Pool size for length %d: %d\n", link.Length, poolSize)
 
 	// Create a new link with the same length to see if we get the recycled code
-	link3, err := service.Create(ctx, "https://recycled-example.com", link.Length, time.Now().Add(24*time.Hour))
+	link3, err := service.Create(ctx, "title4", "https://recycled-example.com", link.Length, time.Now().Add(24*time.Hour))
 	if err != nil {
 		fmt.Printf("Failed to create link with recycled code: %v\n", err)
 		return

@@ -28,12 +28,15 @@ const (
 )
 
 type ShortLink struct {
-	ID     int64      `json:"id" comment:"ID"`
-	Length int        `json:"length" comment:"short code length"`
-	Code   string     `json:"code" comment:"short code"`
-	Link   string     `json:"link" comment:"original link"`
-	Expire time.Time  `json:"expire" comment:"expire time"`
-	Status LinkStatus `json:"status" comment:"status"`
+	ID         int64      `json:"id" comment:"ID"`
+	Length     int        `json:"length" comment:"short code length"`
+	Code       string     `json:"code" comment:"short code"`
+	Title      string     `json:"title" comment:"link title"`
+	Link       string     `json:"link" comment:"original link"`
+	Expire     time.Time  `json:"expire" comment:"expire time"`
+	Status     LinkStatus `json:"status" comment:"status"`
+	CreateTime time.Time  `json:"create_time" comment:"create time"`
+	ModifyTime time.Time  `json:"modify_time" comment:"modify time"`
 }
 
 func (l *ShortLink) IsActive() bool {
