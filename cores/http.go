@@ -77,6 +77,8 @@ func (s *ShortLinkService) HttpHandleManagement(w http.ResponseWriter, r *http.R
 	}
 
 	switch managementOp {
+	case "get":
+		s.httpHandleGet(w, r)
 	case "create":
 		s.httpHandleEdit(w, r, s.httpHandleCreate)
 	case "update":
@@ -91,6 +93,22 @@ func (s *ShortLinkService) HttpHandleManagement(w http.ResponseWriter, r *http.R
 	}
 }
 
+func (s *ShortLinkService) httpHandleGet(w http.ResponseWriter, r *http.Request) {
+	code, ok := vhttpquery.String(r, "code")
+	if !ok || code == "" {
+		vhttpresp.BadMsg(w, r, "code is empty")
+		return
+	}
+
+	link, err := s.Repo.GetByCode(r.Context(), code)
+	if err != nil {
+		vhttpresp.BadError(w, r, err)
+		return
+	}
+
+	vhttpresp.Success(w, r, link)
+}
+
 type EditLinkRequest struct {
 	Code   string    `json:"code"`
 	Link   string    `json:"link"`
@@ -98,14 +116,15 @@ type EditLinkRequest struct {
 	Expire time.Time `json:"expire"`
 }
 
-func (s *ShortLinkService) httpHandleEdit(w http.ResponseWriter, r *http.Request, editor func(w http.ResponseWriter, r *http.Request, req *EditLinkRequest)) {
+func (s *ShortLinkService) httpHandleEdit(w http.ResponseWriter, r *http.Request, editHandler func(w http.ResponseWriter, r *http.Request, req *EditLinkRequest)) {
 	var req EditLinkRequest
 	err := vjson.UnmarshalStream(r.Body, &req)
 	if err != nil {
 		vhttpresp.BadError(w, r, err)
 		return
 	}
-	editor(w, r, &req)
+
+	editHandler(w, r, &req)
 }
 
 func (s *ShortLinkService) httpHandleCreate(w http.ResponseWriter, r *http.Request, req *EditLinkRequest) {
