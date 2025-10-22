@@ -85,12 +85,14 @@ func (m *ShortLinkModel) ToCore() *cores.ShortLink {
 // FromCore converts a cores.ShortLink to a ShortLinkModel
 func FromCore(link *cores.ShortLink) *ShortLinkModel {
 	return &ShortLinkModel{
-		ID:     link.ID,
-		Length: link.Length,
-		Code:   link.Code,
-		Title:  link.Title,
-		Link:   link.Link,
-		Expire: link.Expire,
-		Status: link.Status,
+		ID:         link.ID,
+		Length:     link.Length,
+		Code:       link.Code,
+		Title:      link.Title,
+		Link:       link.Link,
+		Expire:     link.Expire,
+		Status:     link.Status,
+		CreateTime: link.CreateTime,
+		ModifyTime: link.ModifyTime,
 	}
 }

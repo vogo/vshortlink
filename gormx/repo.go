@@ -42,6 +42,8 @@ func NewGormShortLinkRepository(db func() *gorm.DB) *GormShortLinkRepository {
 func (r *GormShortLinkRepository) Create(ctx context.Context, link *cores.ShortLink) error {
 	// Convert to GORM model
 	model := FromCore(link)
+	model.CreateTime = time.Now()
+	model.ModifyTime = time.Now()
 
 	// Create the record
 	result := r.db().WithContext(ctx).Create(model)
@@ -59,6 +61,7 @@ func (r *GormShortLinkRepository) Create(ctx context.Context, link *cores.ShortL
 func (r *GormShortLinkRepository) Update(ctx context.Context, link *cores.ShortLink) error {
 	// Convert to GORM model
 	model := FromCore(link)
+	model.ModifyTime = time.Now()
 
 	// Update the record
 	result := r.db().WithContext(ctx).Save(model)
@@ -87,6 +90,7 @@ func (r *GormShortLinkRepository) Updates(ctx context.Context, links []*cores.Sh
 	// Update each link
 	for _, link := range links {
 		model := FromCore(link)
+		model.ModifyTime = time.Now()
 		result := tx.Save(model)
 		if result.Error != nil {
 			tx.Rollback()
