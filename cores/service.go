@@ -185,7 +185,7 @@ func (s *ShortLinkService) Add(ctx context.Context, code, title, link string, ex
 	return shortLink, nil
 }
 
-func (s *ShortLinkService) Update(ctx context.Context, code, link string, expireTime time.Time) error {
+func (s *ShortLinkService) Update(ctx context.Context, code, title, link string, expireTime time.Time) error {
 	shortLink, err := s.Repo.GetByCode(ctx, code)
 	if err != nil {
 		return err
@@ -200,6 +200,7 @@ func (s *ShortLinkService) Update(ctx context.Context, code, link string, expire
 	}
 
 	shortLink.Link = link
+	shortLink.Title = title
 	shortLink.Expire = expireTime
 
 	return s.Repo.Update(ctx, shortLink)

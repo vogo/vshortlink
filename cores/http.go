@@ -178,26 +178,26 @@ func (s *ShortLinkService) httpHandleCreate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	vlog.Infof("create short link, code:%s, link:%s, expire:%s",
-		shortLink.Code, shortLink.Link, shortLink.Expire)
+	vlog.Infof("create short link, code:%s, title:%s, link:%s, expire:%s",
+		shortLink.Code, shortLink.Title, shortLink.Link, shortLink.Expire)
 
 	vhttpresp.Success(w, r, shortLink)
 }
 
 func (s *ShortLinkService) httpHandleUpdate(w http.ResponseWriter, r *http.Request, req *EditLinkRequest) {
-	if req.Code == "" || req.Link == "" || req.Expire.IsZero() {
-		vhttpresp.BadMsg(w, r, "code, link, expire is empty")
+	if req.Code == "" || req.Title == "" || req.Link == "" || req.Expire.IsZero() {
+		vhttpresp.BadMsg(w, r, "code, title, link, expire is empty")
 		return
 	}
 
-	err := s.Update(context.Background(), req.Code, req.Link, req.Expire)
+	err := s.Update(context.Background(), req.Code, req.Title, req.Link, req.Expire)
 	if err != nil {
 		vhttpresp.BadError(w, r, err)
 		return
 	}
 
-	vlog.Infof("update short link, code:%s, link:%s, expire:%s",
-		req.Code, req.Link, req.Expire)
+	vlog.Infof("update short link, code:%s, title:%s, link:%s, expire:%s",
+		req.Code, req.Title, req.Link, req.Expire)
 
 	vhttpresp.Success(w, r, nil)
 }
