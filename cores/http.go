@@ -67,6 +67,8 @@ func (s *ShortLinkService) HttpHandle(w http.ResponseWriter, r *http.Request) {
 		s.AddMemLRUCache(code, link)
 	}
 
+	s.RecordHit(code)
+
 	http.Redirect(w, r, link, http.StatusFound)
 }
 
@@ -88,6 +90,10 @@ func (s *ShortLinkService) HttpHandleManagement(w http.ResponseWriter, r *http.R
 		s.httpHandleEdit(w, r, s.httpHandleRemove)
 	case "list":
 		s.httpHandleList(w, r)
+	case "stats":
+		s.httpHandleStats(w, r)
+	case "stats_batch":
+		s.httpHandleStatsBatch(w, r)
 	default:
 		vhttpresp.BadMsg(w, r, "invalid op")
 		return
@@ -217,6 +223,44 @@ func (s *ShortLinkService) httpHandleRemove(w http.ResponseWriter, r *http.Reque
 	vlog.Infof("remove short link, code:%s", req.Code)
 
 	vhttpresp.Success(w, r, nil)
+}
+
+type StatsBatchRequest struct {
+	Codes []string `json:"codes"`
+	Days  int      `json:"days"`
+}
+
+func (s *ShortLinkService) httpHandleStats(w http.ResponseWriter, r *http.Request) {
+	code, ok := vhttpquery.String(r, "code")
+	if !ok || code == "" {
+		vhttpresp.BadMsg(w, r, "code is empty")
+		return
+	}
+	days, _ := vhttpquery.Int(r, "days")
+
+	result, err := s.GetStats(r.Context(), code, days)
+	if err != nil {
+		vhttpresp.BadError(w, r, err)
+		return
+	}
+
+	vhttpresp.Success(w, r, result)
+}
+
+func (s *ShortLinkService) httpHandleStatsBatch(w http.ResponseWriter, r *http.Request) {
+	var req StatsBatchRequest
+	if err := vjson.UnmarshalStream(r.Body, &req); err != nil {
+		vhttpresp.BadError(w, r, err)
+		return
+	}
+
+	result, err := s.BatchGetStats(r.Context(), req.Codes, req.Days)
+	if err != nil {
+		vhttpresp.BadError(w, r, err)
+		return
+	}
+
+	vhttpresp.Success(w, r, result)
 }
 
 func (s *ShortLinkService) httpHandleList(w http.ResponseWriter, r *http.Request) {

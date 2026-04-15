@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/vogo/vogo/vlog"
@@ -52,6 +53,16 @@ func main() {
 
 	authToken := vos.GetEnvStr("AUTH_TOKEN", "")
 
+	statsRetentionDays := vos.GetEnvInt("STATS_RETENTION_DAYS", 7)
+	statsFlushSeconds := vos.GetEnvInt("STATS_FLUSH_INTERVAL_SECONDS", 1)
+	statsBufferSize := vos.GetEnvInt("STATS_BUFFER_SIZE", 10000)
+	statsTimezone := vos.GetEnvStr("STATS_TIMEZONE", "UTC")
+
+	statsLoc, err := time.LoadLocation(statsTimezone)
+	if err != nil {
+		vlog.Fatalf("invalid STATS_TIMEZONE %q: %v", statsTimezone, err)
+	}
+
 	mysqlDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
 
@@ -80,10 +91,18 @@ func main() {
 	repo := gormx.NewGormShortLinkRepository(dbFunc)
 	cache := redisx.NewRedisShortLinkCache(redisClient)
 	pool := redisx.NewRedisShortCodePool(redisClient)
+	stats := redisx.NewRedisShortLinkStats(redisClient,
+		redisx.WithStatsRetentionDays(statsRetentionDays))
 
-	service := cores.NewShortLinkService(repo, cache, pool, cores.WithBatchGenerateSize(batchGenerateSize),
+	service := cores.NewShortLinkService(repo, cache, pool,
+		cores.WithBatchGenerateSize(batchGenerateSize),
 		cores.WithMaxCodeLength(maxCodeLength),
-		cores.WithAuthToken(authToken))
+		cores.WithAuthToken(authToken),
+		cores.WithStats(stats),
+		cores.WithStatsTimezone(statsLoc),
+		cores.WithStatsRetentionDays(statsRetentionDays),
+		cores.WithStatsFlushInterval(time.Duration(statsFlushSeconds)*time.Second),
+		cores.WithStatsBufferSize(statsBufferSize))
 
 	defer service.Close()
 

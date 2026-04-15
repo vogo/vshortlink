@@ -33,6 +33,7 @@ type ShortLinkService struct {
 	Repo  ShortLinkRepository
 	Cache ShortLinkCache
 	Pool  ShortCodePool
+	Stats ShortLinkStats
 
 	memLRUCache     *expirable.LRU[string, string]
 	memLRUCacheSize int
@@ -42,6 +43,12 @@ type ShortLinkService struct {
 	maxCodeLength     int
 	manualCodeLength  int
 	authToken         string
+
+	statsLoc           *time.Location
+	statsRetentionDays int
+	statsFlushInterval time.Duration
+	statsBufferSize    int
+	statsRecorder      *statsRecorder
 
 	generators map[int]*ShortCodeGenerator
 }
@@ -90,6 +97,50 @@ func WithMemLRUCacheTTL(ttl time.Duration) ServiceOption {
 	}
 }
 
+// WithStats enables the click-counting subsystem. When nil (default) Record is
+// a no-op and management stats endpoints return an error.
+func WithStats(stats ShortLinkStats) ServiceOption {
+	return func(s *ShortLinkService) {
+		s.Stats = stats
+	}
+}
+
+// WithStatsTimezone sets the location used to compute day keys. Defaults to UTC.
+// Callers typically drive this from an env var at wire time.
+func WithStatsTimezone(loc *time.Location) ServiceOption {
+	return func(s *ShortLinkService) {
+		if loc != nil {
+			s.statsLoc = loc
+		}
+	}
+}
+
+// WithStatsRetentionDays caps how many past days management endpoints will
+// serve. Backends enforce their own physical retention (e.g. Redis TTL).
+func WithStatsRetentionDays(days int) ServiceOption {
+	return func(s *ShortLinkService) {
+		if days > 0 {
+			s.statsRetentionDays = days
+		}
+	}
+}
+
+func WithStatsFlushInterval(d time.Duration) ServiceOption {
+	return func(s *ShortLinkService) {
+		if d > 0 {
+			s.statsFlushInterval = d
+		}
+	}
+}
+
+func WithStatsBufferSize(size int) ServiceOption {
+	return func(s *ShortLinkService) {
+		if size > 0 {
+			s.statsBufferSize = size
+		}
+	}
+}
+
 func NewShortLinkService(repo ShortLinkRepository, cache ShortLinkCache, pool ShortCodePool, opts ...ServiceOption) *ShortLinkService {
 	svc := &ShortLinkService{
 		runner: vrun.New(),
@@ -104,6 +155,11 @@ func NewShortLinkService(repo ShortLinkRepository, cache ShortLinkCache, pool Sh
 
 		memLRUCacheSize: 10240,
 		memLRUCacheTTL:  time.Minute * 5,
+
+		statsLoc:           time.UTC,
+		statsRetentionDays: 7,
+		statsFlushInterval: time.Second,
+		statsBufferSize:    10000,
 	}
 
 	for _, opt := range opts {
@@ -111,6 +167,11 @@ func NewShortLinkService(repo ShortLinkRepository, cache ShortLinkCache, pool Sh
 	}
 
 	svc.memLRUCache = expirable.NewLRU[string, string](svc.memLRUCacheSize, nil, svc.memLRUCacheTTL)
+
+	if svc.Stats != nil {
+		svc.statsRecorder = newStatsRecorder(svc.Stats, svc.statsLoc, svc.statsBufferSize, svc.statsFlushInterval)
+		go svc.statsRecorder.run(svc.runner.C)
+	}
 
 	ctx := context.Background()
 
@@ -134,16 +195,64 @@ func NewShortLinkService(repo ShortLinkRepository, cache ShortLinkCache, pool Sh
 func (s *ShortLinkService) Close() {
 	s.runner.Stop()
 
-	// Close cache
+	// Wait for the stats recorder to drain and flush its in-memory merge buffer
+	// before closing the backend, otherwise pending counts would be lost.
+	if s.statsRecorder != nil {
+		<-s.statsRecorder.done
+	}
+
 	ctx := context.Background()
 	if err := s.Cache.Close(ctx); err != nil {
 		vlog.Errorf("close cache failed: %v", err)
 	}
 
-	// Close short code pool
 	if err := s.Pool.Close(ctx); err != nil {
 		vlog.Errorf("close pool failed: %v", err)
 	}
+
+	if s.Stats != nil {
+		if err := s.Stats.Close(ctx); err != nil {
+			vlog.Errorf("close stats failed: %v", err)
+		}
+	}
+}
+
+// RecordHit pushes one hit event into the recorder. Safe to call when stats
+// are disabled (no-op). Non-blocking; events may be dropped if the buffer is full.
+func (s *ShortLinkService) RecordHit(code string) {
+	if s.statsRecorder != nil {
+		s.statsRecorder.Record(code)
+	}
+}
+
+// GetStats returns the hit counts for a single code over the last `days` days
+// (inclusive of today), using the configured stats timezone.
+func (s *ShortLinkService) GetStats(ctx context.Context, code string, days int) (map[string]int64, error) {
+	if s.Stats == nil {
+		return nil, errors.New("stats not enabled")
+	}
+	if code == "" {
+		return nil, errors.New("code is empty")
+	}
+	if days <= 0 || days > s.statsRetentionDays {
+		days = s.statsRetentionDays
+	}
+	return s.Stats.Get(ctx, code, dayList(time.Now(), s.statsLoc, days))
+}
+
+// BatchGetStats returns hit counts for multiple codes over the last `days` days.
+// Intended as the pull entry point for downstream systems doing T+1 archival.
+func (s *ShortLinkService) BatchGetStats(ctx context.Context, codes []string, days int) (map[string]map[string]int64, error) {
+	if s.Stats == nil {
+		return nil, errors.New("stats not enabled")
+	}
+	if len(codes) == 0 {
+		return nil, errors.New("codes is empty")
+	}
+	if days <= 0 || days > s.statsRetentionDays {
+		days = s.statsRetentionDays
+	}
+	return s.Stats.BatchGet(ctx, codes, dayList(time.Now(), s.statsLoc, days))
 }
 
 func (s *ShortLinkService) Create(ctx context.Context, title, link string, shortCodeLength int, expireTime time.Time) (*ShortLink, error) {

@@ -1,61 +1,31 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+URL shortener with pluggable backends.
 
 ## Commands
 
-- `make test` — run full test suite (`go test ./... -v`).
-- `go test ./cores/ -run TestName` — run a single test.
-- `make format` — goimports, `go fmt`, and gofumpt.
-- `make lint` — golangci-lint.
-- `make license-check` — enforces Apache headers on all `.go` files; new Go files must include the Apache 2.0 header block seen in existing sources. Requires `license-header-checker` installed.
-- `make build` — runs license-check, format, lint, and test in sequence (no binary output).
-- `go run cmd/server/main.go` — start the production server (needs MySQL + Redis; see README for env vars).
+- `make test` / `go test ./cores/ -run TestName` — test suite / single test.
+- `make format` / `make lint` / `make license-check` — goimports+fmt+gofumpt / golangci-lint / Apache header check (new `.go` files need the header).
+- `make build` — license-check + format + lint + test.
+- `go run cmd/server/main.go` — prod server (needs MySQL + Redis).
 
 ## Architecture
 
-The project is a URL shortener organized around three pluggable interfaces in `cores/`, with interchangeable backends under sibling packages.
+Four core interfaces in `cores/` with swappable backends in `ext/`:
 
-### Core interfaces (`cores/`)
+- `ShortLinkRepository` (`repo.go`) — stores `ShortLink` rows + per-length `startIndex`.
+- `ShortCodePool` (`pool.go`) — pre-generated code pool with distributed `Lock`/`Unlock`.
+- `ShortLinkCache` (`cache.go`) — fast code→URL lookup with embedded expiration.
+- `ShortLinkStats` (`stats.go`) — optional daily hit counters; nil = no-op.
 
-- `ShortLinkRepository` (`repo.go`) — persistent storage for `ShortLink` rows plus per-length `startIndex` bookkeeping for the generator.
-- `ShortCodePool` (`pool.go`) — pre-generated pool of unused codes keyed by length, with `Lock`/`Unlock` for distributed coordination and `Clear` for rebuilds.
-- `ShortLinkCache` (`cache.go`) — fast-path code→URL lookup with expiration stored alongside the value.
+`ShortLinkService` (`service.go`) composes them, adds in-process `expirable.LRU` (5min/10240), schedules daily `ExpireActives` + `RecycleExpires` via `vrun.Runner`.
 
-`ShortLinkService` (`service.go`) composes all three, adds an in-process `expirable.LRU` in front of the cache (`memLRUCache`, default 5 min TTL, 10240 entries), and schedules daily `ExpireActives` + `RecycleExpires` jobs via `vrun.Runner`.
+Backends: `ext/gormx` (MySQL repo), `ext/redisx` (pool/cache/stats), `ext/memx` (all four, tests/examples). Prod wires gormx repo + redisx others in `cmd/server/main.go`.
 
-### Backend implementations
+**Codes** are base62, strided: `step = 62^length / batchSize`; `startIndex` monotonic, exhausted when `startIndex > step`. `length <= manualCodeLength` (3) = caller-supplied via `Add`; larger = pool-drawn via `Create`.
 
-All backend implementations live under `ext/` — three parallel packages, each implementing one or more of the core interfaces:
+**HTTP** (`cores/http.go`): `GET /{code}` → LRU→cache→302/404, records hit on non-404. `*/__{op}` management (`get/create/update/remove/list/stats/stats_batch`) guarded by `Authorization` header vs `AUTH_TOKEN`. `__` prefix (`ManagementCodePrefix`) reserved — don't allocate colliding codes.
 
-- `ext/gormx/` — GORM/MySQL repository (persistent layer used in production `cmd/server`).
-- `ext/redisx/` — Redis-backed `ShortCodePool` (ZSet) and `ShortLinkCache` (value encodes both link and expiration, checked on read).
-- `ext/memx/` — in-memory versions of all three interfaces; used for tests and `examples/mem_examples`.
+**Stats** (`stats_recorder.go`): `RecordHit` is non-blocking — pushes to bounded channel (default 10000), dropped when full. Recorder goroutine merges `code→delta` and flushes every `WithStatsFlushInterval` (1s) via `IncrBatch`. Day key uses `statsLoc` timezone (`STATS_TIMEZONE` env, default UTC). Redis backend reapplies `EXPIRE (retention+1)*24h` on every flush; memx does no trimming. `Service.Close()` drains recorder before closing `Stats`. `GetStats`/`BatchGetStats` cap `days` at retention.
 
-`cmd/server/main.go` wires the hybrid production mix: `ext/gormx` repo + `ext/redisx` cache + `ext/redisx` pool. The `examples/` subfolders show pure-in-memory, pure-Redis, pure-GORM variants plus a `rebuild_pool` example.
-
-### Code generation algorithm (`gen.go`, `util.go`)
-
-Codes are base62. Per-length pool generation is strided: `step = 62^length / batchSize`. Each invocation of `GenerateBatchNumbers(length, startIndex)` produces `batchSize` codes by walking `startIndex, startIndex+step, startIndex+2*step, ...`, then `startIndex` is incremented by 1 and persisted via `Repo.SaveStartIndex`. This interleaves future batches between previously-issued codes rather than allocating contiguous ranges, so `startIndex` must monotonically increase and is authoritative across restarts. When `startIndex > step` the pool for that length is exhausted.
-
-### Length policy
-
-`manualCodeLength` (default 3) and `maxCodeLength` (default 9, overridable) split two regimes:
-
-- `length <= manualCodeLength` → caller supplies the code directly (`Service.Add`); code uniqueness is checked against the repo (recycled entries may be reused).
-- `length > manualCodeLength` → code is pulled from the `ShortCodePool` (`Service.Create`). Generators are created only for these lengths in `NewShortLinkService`.
-
-### HTTP surface (`cores/http.go`)
-
-Single handler `ShortLinkService.HttpHandle` registered at `/` in `cmd/server`:
-
-- `GET /{code}` — lookup via LRU → cache, then 302 redirect or 404.
-- `*/__{op}` — management endpoints (`get`, `create`, `update`, `remove`, `list`). Guarded by `Authorization` header matching `authToken` when configured (`WithAuthToken` / `AUTH_TOKEN` env).
-
-The `__` prefix (`ManagementCodePrefix`) is the routing discriminator; don't allocate real codes that collide.
-
-### Recycling and rebuild
-
-- `ExpireActives` — moves active-but-past-expiry links to `LinkStatusExpired` and evicts them from cache.
-- `RecycleExpires` — after a cooling period (hardcoded 365 days in `service.go`), returns expired codes to the pool and marks them `LinkStatusRecycled`.
-- `RebuildCodePool(ctx, length)` — disaster-recovery path: locks the length, clears the pool, re-adds every batch from `startIndex=0..current`, then removes codes whose links still exist with `LinkStatusActive` or `LinkStatusExpired` (not recycled). See `examples/rebuild_pool/`.
+**Recycling**: `ExpireActives` moves past-expiry → `LinkStatusExpired` (evicts cache). `RecycleExpires` after 365d cooling → pool + `LinkStatusRecycled`. `RebuildCodePool` re-adds every batch from `startIndex=0..current`, then removes still-active/expired codes.
