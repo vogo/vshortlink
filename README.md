@@ -75,13 +75,15 @@ The `cores` package defines the core interfaces and implementations for the shor
 
 ### Implementation Packages
 
-- `gormx`: MySQL-based implementation using GORM for persistent storage of short links
-- `redisx`: Redis-based implementation with the following features:
+All backend implementations live under the `ext/` package:
+
+- `ext/gormx`: MySQL-based implementation using GORM for persistent storage of short links
+- `ext/redisx`: Redis-based implementation with the following features:
   - Short code pool management using Redis ZSet
   - Short link caching with automatic expiration checking
   - Combined storage of link and expiration time in a single value
   - Proper resource management with Close methods
-- `memx`: Memory-based implementation for testing and development with proper resource cleanup
+- `ext/memx`: Memory-based implementation for testing and development with proper resource cleanup
 
 ## Hybrid Implementation
 

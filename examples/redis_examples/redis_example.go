@@ -25,8 +25,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/vogo/vshortlink/cores"
-	"github.com/vogo/vshortlink/memx"
-	"github.com/vogo/vshortlink/redisx"
+	"github.com/vogo/vshortlink/ext/memx"
+	"github.com/vogo/vshortlink/ext/redisx"
 )
 
 // RedisExample demonstrates how to use the Redis-based short link service

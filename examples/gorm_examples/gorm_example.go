@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/vogo/vshortlink/cores"
-	"github.com/vogo/vshortlink/gormx"
-	"github.com/vogo/vshortlink/memx"
+	"github.com/vogo/vshortlink/ext/gormx"
+	"github.com/vogo/vshortlink/ext/memx"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

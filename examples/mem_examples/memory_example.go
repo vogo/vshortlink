@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/vogo/vshortlink/cores"
-	"github.com/vogo/vshortlink/memx"
+	"github.com/vogo/vshortlink/ext/memx"
 )
 
 func main() {
